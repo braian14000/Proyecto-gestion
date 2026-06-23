@@ -13,6 +13,22 @@
 
         <h1 class="h3 mb-3 fw-normal">Please sign in</h1>
         
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                {% if category == 'success' %}
+                <div class="alert alert-success p-2 text-center" role="alert" style="font-size: 0.9rem; color: #0f5132; background-color: #d1e7dd; border-color: #badbcc;">
+                    {{ message }}
+                </div>
+                {% else %}
+                <div class="alert alert-danger p-2 text-center" role="alert" style="font-size: 0.9rem;">
+                    {{ message }}
+                </div>
+                {% endif %}
+            {% endfor %}
+        {% endif %}
+        {% endwith %}
+        
         <div class="form-floating mb-2">
             <input type="text" class="form-control" id="username" name="username" placeholder="Username" required>
             <label for="username">Username</label>
@@ -25,11 +41,6 @@
         
         <button class="w-100 btn btn-lg btn-primary" type="submit">Sign in</button>
         <a href="{{ url_for('register') }}" class="d-block text-center mt-3">¿No tienes cuenta? Regístrate aquí</a>
-        
-        
-        
     </form>
-
-
 </main>
 {% endblock %}
