@@ -4,12 +4,9 @@
 
 {%block body %}
 
-<h1> Bienvenido {{ current_user.fullname}} </h1>
-
+<h1>Bienvenido {{ current_user.username }}</h1>
 <a class="btn btn-secondary" href="{{url_for('logout')}}">logout</a>
 
 {%endblock%}
-
-
 
 
