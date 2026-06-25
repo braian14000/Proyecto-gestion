@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Cartelera de Eventos</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h2>Bienvenido, {{ usuario }}!</h2>
+        <h3>Próximos Eventos</h3>
+        
+        <div class="grid-eventos">
+            {% for evento in eventos %}
+                <div class="tarjeta-evento">
+                    <h4>{{ evento.titulo }}</h4>
+                    <p><strong>Fecha:</strong> {{ evento.fecha }}</p>
+                    <a href="{{ url_for('detalle_evento', evento_id=evento.id) }}" class="btn">Ver Detalle</a>
+                </div>
+            {% endfor %}
+        </div>
+
+        <br>
+        {% if usuario == 'admin' %}
+            <a href="/admin">Volver al Panel Admin</a> | 
+        {% endif %}
+        <a href="/logout">Cerrar Sesión</a>
+    </div>
+</body>
+</html>

@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Panel Admin - Cargar Evento</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h2>Panel Admin - Cargar Evento</h2>
+
+        <form method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="text" name="titulo" placeholder="Título" required>
+            <input type="date" name="fecha" required>
+            <input type="text" name="lugar" placeholder="Lugar" required>
+            <textarea name="descripcion" placeholder="Descripción" rows="4" required></textarea>
+            <button type="submit">Agregar Evento</button>
+        </form>
+
+        <br>
+        <a href="/eventos">Ver Eventos</a> | <a href="/logout">Cerrar Sesión</a>
+    </div>
+</body>
+</html>

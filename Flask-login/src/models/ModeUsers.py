@@ -7,7 +7,7 @@ class ModelUser():
         try:
             cursor = db.connection.cursor()
             # Buscamos por email y seleccionamos las columnas correctas
-            sql = "SELECT id, username, email, password, telefono FROM user WHERE email = %s"
+            sql = "SELECT id, username, email, password, telefono FROM `user` WHERE email = %s"
             cursor.execute(sql, (user.email,))
             row = cursor.fetchone()
             
@@ -24,7 +24,7 @@ class ModelUser():
     def get_by_id(cls, db, id):
         try:
             cursor = db.connection.cursor()
-            sql = "SELECT id, username, email, telefono FROM user WHERE id = %s"
+            sql = "SELECT id, username, email, telefono FROM `user` WHERE id = %s"
             cursor.execute(sql, (id,))
             row = cursor.fetchone()
             

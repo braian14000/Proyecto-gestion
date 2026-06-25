@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ evento.titulo }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container-detalle">
+        <h1>{{ evento.titulo }}</h1>
+        <p><strong>Fecha:</strong> {{ evento.fecha }}</p>
+        <p><strong>Lugar:</strong> {{ evento.lugar }}</p>
+        <p class="descripcion">{{ evento.descripcion }}</p>
+        
+        <br>
+        <a href="/eventos" class="btn-volver">← Volver a la lista</a>
+    </div>
+</body>
+</html>
