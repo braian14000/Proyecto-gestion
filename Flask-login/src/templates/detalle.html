@@ -2,18 +2,48 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ evento.titulo }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <div class="container-detalle">
-        <h1>{{ evento.titulo }}</h1>
-        <p><strong>Fecha:</strong> {{ evento.fecha }}</p>
-        <p><strong>Lugar:</strong> {{ evento.lugar }}</p>
-        <p class="descripcion">{{ evento.descripcion }}</p>
+    <div class="container">
+        <a href="/eventos" style="display: inline-block; margin-bottom: 30px; color: #2c3e50;">← Volver</a>
         
-        <br>
-        <a href="/eventos" class="btn-volver">← Volver a la lista</a>
+        <h2>{{ evento.titulo }}</h2>
+        
+        <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 30px;">
+            <p><strong>📅 Fecha:</strong> {{ evento.fecha }}</p>
+            <p><strong>📍 Lugar:</strong> {{ evento.lugar }}</p>
+        </div>
+        
+        <div style="line-height: 1.8; color: #444;">
+            <h3>Descripción</h3>
+            <p>{{ evento.descripcion }}</p>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-messages">
+            {% for category, message in messages %}
+                <div class="flash {{ category }}">{{ message }}</div>
+            {% endfor %}
+            </div>
+        {% endif %}
+        {% endwith %}
+
+        {% if not registrado and current_user.email != 'admin' and current_user.username != 'admin' %}
+            <form method="post" action="{{ url_for('registrar_evento', evento_id=evento.id) }}" onsubmit="return confirm('¿Estás seguro de que deseas anotarte a este evento?');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn">Anotarme</button>
+            </form>
+        {% elif registrado %}
+            <div class="flash success" style="margin-top: 20px;">Ya estás anotado en este evento.</div>
+        {% endif %}
+
+        <div class="enlaces">
+            <a href="/eventos">← Volver a eventos</a>
+        </div>
     </div>
 </body>
 </html>

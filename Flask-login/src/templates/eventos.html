@@ -2,29 +2,45 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Cartelera de Eventos</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eventos</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
     <div class="container">
-        <h2>Bienvenido, {{ usuario }}!</h2>
-        <h3>Próximos Eventos</h3>
+        <div class="encabezado">
+            <h2>Eventos</h2>
+            <div class="usuario-info">Hola, {{ usuario }}</div>
+        </div>
         
         <div class="grid-eventos">
             {% for evento in eventos %}
                 <div class="tarjeta-evento">
                     <h4>{{ evento.titulo }}</h4>
                     <p><strong>Fecha:</strong> {{ evento.fecha }}</p>
-                    <a href="{{ url_for('detalle_evento', evento_id=evento.id) }}" class="btn">Ver Detalle</a>
+                    <p style="color: #999; font-size: 13px;">{{ evento.lugar }}</p>
+                    <a href="{{ url_for('detalle_evento', evento_id=evento.id) }}" class="btn" style="display: block; text-align: center;">Ver detalle</a>
+                    
+                    {% if usuario == 'admin' %}
+                    <div class="botones-admin">
+                        <a href="{{ url_for('ver_usuarios_evento', evento_id=evento.id) }}" class="btn-usuarios">Ver usuarios</a>
+                        <a href="{{ url_for('editar_evento', evento_id=evento.id) }}" class="btn-editar">Editar</a>
+                        <form method="post" action="{{ url_for('eliminar_evento', evento_id=evento.id) }}" style="flex: 1;" onsubmit="return confirm('¿Eliminar este evento?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn-eliminar">Eliminar</button>
+                        </form>
+                    </div>
+                    {% endif %}
                 </div>
             {% endfor %}
         </div>
 
-        <br>
-        {% if usuario == 'admin' %}
-            <a href="/admin">Volver al Panel Admin</a> | 
-        {% endif %}
-        <a href="/logout">Cerrar Sesión</a>
+        <div class="enlaces" style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #f0f0f0;">
+            {% if usuario == 'admin' %}
+                <a href="/admin" style="margin-right: 20px;">+ Agregar evento</a>
+            {% endif %}
+            <a href="/logout">Cerrar sesión</a>
+        </div>
     </div>
 </body>
 </html>

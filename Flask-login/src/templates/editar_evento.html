@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agregar Evento</title>
+    <title>Editar Evento</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
     <div class="container">
-        <h2>Crear Evento</h2>
+        <h2>Editar Evento</h2>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
@@ -24,26 +24,26 @@
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             
             <div class="form-group">
-                <input type="text" name="titulo" placeholder="Título del evento" required>
+                <input type="text" name="titulo" placeholder="Título" value="{{ evento.titulo }}" required>
             </div>
             
             <div class="form-group">
-                <input type="date" name="fecha" required>
+                <input type="date" name="fecha" value="{{ evento.fecha }}" required>
             </div>
             
             <div class="form-group">
-                <input type="text" name="lugar" placeholder="Ubicación" required>
+                <input type="text" name="lugar" placeholder="Ubicación" value="{{ evento.lugar }}" required>
             </div>
             
             <div class="form-group">
-                <textarea name="descripcion" placeholder="Descripción" rows="5" required></textarea>
+                <textarea name="descripcion" placeholder="Descripción" rows="5" required>{{ evento.descripcion }}</textarea>
             </div>
             
-            <button type="submit">Crear evento</button>
+            <button type="submit">Guardar cambios</button>
         </form>
 
         <div class="enlaces">
-            <a href="/eventos" style="margin-right: 20px;">← Volver a eventos</a>
+            <a href="{{ url_for('ver_eventos') }}" style="margin-right: 20px;">← Volver a eventos</a>
             <a href="/logout">Cerrar sesión</a>
         </div>
     </div>

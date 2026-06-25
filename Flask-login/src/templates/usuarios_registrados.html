@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Usuarios registrados</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <a href="{{ url_for('ver_eventos') }}" style="display: inline-block; margin-bottom: 30px; color: #2c3e50;">← Volver a eventos</a>
+
+        <h2>Usuarios anotados</h2>
+        <p style="color: #666; margin-bottom: 20px;">Evento: <strong>{{ evento.titulo }}</strong></p>
+
+        {% if usuarios %}
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>DNI</th>
+                            <th>Nombre</th>
+                            <th>Registrado</th>
+                            <th>Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for usuario in usuarios %}
+                        <tr>
+                            <td>{{ usuario.dni }}</td>
+                            <td>{{ usuario.nombre }}</td>
+                            <td>{{ usuario.created_at }}</td>
+                            <td>
+                                <form method="post" action="{{ url_for('eliminar_usuario_registrado', evento_id=evento.id, registro_id=usuario.id) }}" onsubmit="return confirm('¿Eliminar este usuario del evento?');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn-eliminar">Eliminar</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="flash info">No hay usuarios anotados aún.</div>
+        {% endif %}
+
+        <div class="enlaces" style="margin-top: 30px;">
+            <a href="{{ url_for('ver_eventos') }}">← Volver a eventos</a>
+        </div>
+    </div>
+</body>
+</html>
