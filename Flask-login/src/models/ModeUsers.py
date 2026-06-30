@@ -6,8 +6,8 @@ class ModelUser():
     def login(cls, db, user):
         try:
             cursor = db.connection.cursor()
-            sql = "SELECT id, username, email, password, telefono, dni FROM `user` WHERE email = %s"
-            cursor.execute(sql, (user.email,))
+            sql = "SELECT id, username, email, password, telefono, dni FROM `user` WHERE email = %s OR username = %s"
+            cursor.execute(sql, (user.email, user.email))
             row = cursor.fetchone()
             
             if row != None:
