@@ -41,7 +41,6 @@ CREATE TABLE `user` (
 --
 
 INSERT INTO `user` (`id`, `username`, `password`, `telefono`, `email`, `dni`) VALUES
-(7, 'patricio', 'scrypt:32768:8:1$79xOtZxmVhuCL702$be80bf9999061d9f9da28647aaf4cdd50cfe13803e29e3e05bb911c43238b766e3730c8261aa40a54f5c05c4c62ea5fa1c54b2a9f862b5b5b6e72aee9d0cf50d', '3564', 'boccopatricio50@gmail.com', '46848362');
 
 --
 -- Índices para tablas volcadas

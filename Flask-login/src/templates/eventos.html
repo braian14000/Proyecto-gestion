@@ -10,7 +10,13 @@
     <div class="container">
         <div class="encabezado">
             <h2>Eventos</h2>
-            <div class="usuario-info">Hola, {{ usuario }}</div>
+            <div>
+                <span class="usuario-info">Hola, {{ usuario }}</span>
+                <a href="{{ url_for('home') }}" class="btn" style="margin-left: 15px; font-size: 0.9rem;">Menu</a>
+                {% if usuario == 'admin' or current_user.email == 'admin' %}
+                <a href="{{ url_for('logout') }}" class="btn btn-secondary" style="margin-left: 10px; font-size: 0.9rem;">Cerrar sesión</a>
+                {% endif %}
+            </div>
         </div>
         
         <div class="grid-eventos">
@@ -39,7 +45,6 @@
             {% if usuario == 'admin' %}
                 <a href="/admin" style="margin-right: 20px;">+ Agregar evento</a>
             {% endif %}
-            <a href="/logout">Cerrar sesión</a>
         </div>
     </div>
 </body>

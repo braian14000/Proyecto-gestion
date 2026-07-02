@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+
+{% block title %}Menú{% endblock %}
+
+{% block customCSS %}
+<style>
+  .menu-card { max-width: 360px; margin: 6rem auto; }
+  .btn-pill { border-radius: 30px; padding: 12px 24px; }
+</style>
+{% endblock %}
+
+{% block body %}
+  <div class="container">
+    <div class="menu-card card shadow-sm p-4">
+      <div class="text-center mb-3">
+        <img src="{{ url_for('static', filename='img/flask.png') }}" alt="logo" style="max-height:80px;">
+        <h4 class="mt-2">Gestión de eventos</h4>
+        <p class="text-muted">Bienvenido, {{ usuario }}</p>
+      </div>
+
+      <div class="d-grid gap-3">
+        <a class="btn btn-light btn-pill shadow-sm" href="{{ url_for('ver_eventos') }}">Ver Eventos</a>
+        <a class="btn btn-light btn-pill shadow-sm" href="{{ url_for('mis_eventos') }}">Eventos Anotados</a>
+        <a class="btn btn-light btn-pill shadow-sm" href="{{ url_for('ver_eventos') }}">Próximos Eventos</a>
+        <a class="btn btn-danger btn-pill shadow-sm" href="{{ url_for('logout') }}">Cerrar sesión</a>
+      </div>
+    </div>
+  </div>
+{% endblock %}

@@ -1,0 +1,28 @@
+{% extends './base.html' %}
+
+{% block title %}Recuperar contraseña{% endblock %}
+
+{% block body %}
+<main class="form-signin w-100 m-auto" style="max-width: 420px; padding: 15px; margin-top: 100px !important;">
+  <form action="/forgot-password" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+    <h1 class="h3 mb-3 fw-normal">Recuperar contraseña</h1>
+
+    {% with messages = get_flashed_messages() %}
+    {% if messages %}
+      <div class="alert alert-warning p-2 text-center" role="alert" style="font-size: 0.9rem;">
+        {% for message in messages %}{{ message }}{% endfor %}
+      </div>
+    {% endif %}
+    {% endwith %}
+
+    <div class="form-floating mb-2">
+      <input type="text" class="form-control" id="identifier" name="identifier" placeholder="Correo o DNI" required>
+      <label for="identifier">Correo o DNI asociado</label>
+    </div>
+
+    <button class="w-100 btn btn-lg btn-primary mb-2" type="submit">Enviar código</button>
+    <a href="{{ url_for('login') }}" class="d-block text-center mt-2">Volver al inicio</a>
+  </form>
+</main>
+{% endblock %}

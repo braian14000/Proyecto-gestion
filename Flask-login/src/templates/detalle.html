@@ -8,7 +8,9 @@
 </head>
 <body>
     <div class="container">
-        <a href="/eventos" style="display: inline-block; margin-bottom: 30px; color: #2c3e50;">← Volver</a>
+        {% if origin != 'mis_eventos' %}
+            <a href="{{ url_for('home') }}" style="display: inline-block; margin-bottom: 30px; color: #2c3e50;">← Volver al inicio</a>
+        {% endif %}
         
         <h2>{{ evento.titulo }}</h2>
         
@@ -32,18 +34,25 @@
         {% endif %}
         {% endwith %}
 
-        {% if not registrado and current_user.email != 'admin' and current_user.username != 'admin' %}
-            <form method="post" action="{{ url_for('registrar_evento', evento_id=evento.id) }}" onsubmit="return confirm('¿Estás seguro de que deseas anotarte a este evento?');">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button type="submit" class="btn">Anotarme</button>
-            </form>
-        {% elif registrado %}
-            <div class="flash success" style="margin-top: 20px;">Ya estás anotado en este evento.</div>
-        {% endif %}
+        {% if origin == 'mis_eventos' %}
+            <div class="btn-group" style="margin-top: 20px;">
+                <a class="btn btn-primary" href="{{ url_for('ver_eventos') }}">Ir a eventos</a>
+                <a class="btn btn-secondary" href="{{ back_url }}">Volver atrás</a>
+            </div>
+        {% else %}
+            {% if not registrado and current_user.email != 'admin' and current_user.username != 'admin' %}
+                <form method="post" action="{{ url_for('registrar_evento', evento_id=evento.id) }}" onsubmit="return confirm('¿Estás seguro de que deseas anotarte a este evento?');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn">Anotarme</button>
+                </form>
+            {% elif registrado %}
+                <div class="flash success" style="margin-top: 20px;">Ya estás anotado en este evento.</div>
+            {% endif %}
 
-        <div class="enlaces">
-            <a href="/eventos">← Volver a eventos</a>
-        </div>
+            <div class="enlaces">
+                <a href="/eventos">← Volver a eventos</a>
+            </div>
+        {% endif %}
     </div>
 </body>
 </html>

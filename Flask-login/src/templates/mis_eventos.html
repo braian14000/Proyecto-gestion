@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+
+{% block title %}Mis eventos{% endblock %}
+
+{% block body %}
+  <div class="container mt-5">
+    <div class="mb-4">
+      <h3>Eventos anotados</h3>
+      <p class="text-muted">Aquí puedes ver tus eventos registrados y cancelar tu asistencia si cambias de planes.</p>
+    </div>
+    {% if registros and registros|length > 0 %}
+      <div class="list-group mt-3">
+        {% for r in registros %}
+          <div class="list-group-item d-flex justify-content-between align-items-center flex-wrap">
+            <div class="mb-2">
+              <h5 class="mb-1">{{ r.titulo }}</h5>
+              <small class="text-muted">{{ r.fecha }} - {{ r.lugar }}</small>
+            </div>
+            <div class="btn-group">
+              <a class="btn btn-sm btn-outline-primary" href="{{ url_for('detalle_evento', evento_id=r.evento_id, origin='mis_eventos') }}">Ver detalles</a>
+              <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('mostrar_qr', registro_id=r.registro_id, origin='mis_eventos') }}">Ver QR</a>
+              <form method="post" action="{{ url_for('cancelar_asistencia', registro_id=r.registro_id) }}" style="display:inline-block; margin:0;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('¿Deseas cancelar tu asistencia a este evento?');">Borrar asistencia</button>
+              </form>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="alert alert-info mt-3">No estás anotado en ningún evento todavía.</div>
+      <a class="btn btn-primary" href="{{ url_for('ver_eventos') }}">Ver eventos</a>
+    {% endif %}
+  </div>
+{% endblock %}

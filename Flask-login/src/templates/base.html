@@ -14,6 +14,11 @@
 </head>
 
 <body class="text-center">
+    {% if current_user.is_authenticated and request.endpoint != 'home' and request.endpoint != 'mis_eventos' and request.endpoint != 'mostrar_qr' and not (request.endpoint == 'detalle_evento' and request.args.get('origin') == 'mis_eventos') %}
+    <div class="container mt-3 text-start">
+        <a href="{{ url_for('home') }}" class="btn btn-sm btn-secondary">Volver al inicio</a>
+    </div>
+    {% endif %}
     {% block body %}
     {% endblock %}
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/js/bootstrap.bundle.min.js"

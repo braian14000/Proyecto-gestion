@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS `registrados` (
   `evento_id` INT UNSIGNED NOT NULL,
   `dni_usuario` VARCHAR(30) NOT NULL,
   `nombre_usuario` VARCHAR(150) NOT NULL,
+  `qr_code` VARCHAR(255) NULL,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_registrados_evento_dni` (`evento_id`, `dni_usuario`),
