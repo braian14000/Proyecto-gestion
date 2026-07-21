@@ -43,6 +43,9 @@
         </form>
 
         <div class="enlaces">
+            {% if current_user.rol == 'admin' %}
+            <a href="{{ url_for('gestionar_organizadores') }}" style="margin-right: 20px;">👥 Gestionar Organizadores</a>
+            {% endif %}
             <a href="{{ url_for('ver_eventos') }}" style="margin-right: 20px;">← Ver todos los eventos</a>
             <a href="/logout">Cerrar sesión</a>
         </div>

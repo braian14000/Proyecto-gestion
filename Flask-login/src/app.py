@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, session
+from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
 from flask_mysqldb import MySQL
 from flask_wtf.csrf import CSRFProtect
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
@@ -26,7 +26,7 @@ login_manager_app.login_view = 'login'
 def load_user(id):
     try:
         if str(id) == '0' or str(id) == 'admin':
-            return User(0, 'admin', 'admin', None, '')
+            return User(0, 'admin', 'admin', None, '', '', 'admin')
         return ModelUser.get_by_id(db, id)
     except Exception:
         return None
@@ -50,6 +50,12 @@ def get_current_user_dni_username():
         except Exception as ex:
             print(f"[ERROR] get_current_user_dni_username: {ex}")
     return dni, username
+
+def is_admin(user):
+    """Verifica si el usuario es administrador"""
+    return (getattr(user, 'email', '') == 'admin' or 
+            getattr(user, 'username', '') == 'admin' or 
+            getattr(user, 'rol', '') == 'admin')
 
 def get_events_from_db():
     try:
@@ -213,7 +219,7 @@ def login():
         password = request.form.get('password') or request.form.get('contraseña')
 
         if email == 'admin' and password == 'admin':
-            admin_user = User(0, 'admin', 'admin', None, '')
+            admin_user = User(0, 'admin', 'admin', None, '', '', 'admin')  # rol='admin'
             login_user(admin_user)
             return redirect(url_for('ver_eventos'))
 
@@ -396,8 +402,10 @@ def new_password():
 @app.route('/admin', methods=['GET', 'POST'])
 @login_required
 def admin_dashboard():
-    if not current_user.is_authenticated or getattr(current_user, 'email', '') != 'admin':
-        return redirect(url_for('login'))
+    # Permitir admin y organizador para crear eventos
+    if not current_user.is_authenticated or getattr(current_user, 'rol', 'estudiante') not in ['admin', 'organizador']:
+        flash('No tienes permiso para crear eventos.', 'error')
+        return redirect(url_for('ver_eventos'))
 
     if request.method == 'POST':
         titulo = request.form.get('titulo')
@@ -422,7 +430,7 @@ def admin_dashboard():
 @app.route('/evento/<int:evento_id>/usuarios')
 @login_required
 def ver_usuarios_evento(evento_id):
-    if not current_user.is_authenticated or getattr(current_user, 'email', '') != 'admin':
+    if not current_user.is_authenticated or not is_admin(current_user):
         return redirect(url_for('login'))
 
     evento = get_event_from_db(evento_id)
@@ -435,7 +443,7 @@ def ver_usuarios_evento(evento_id):
 @app.route('/evento/<int:evento_id>/usuarios/eliminar/<int:registro_id>', methods=['POST'])
 @login_required
 def eliminar_usuario_registrado(evento_id, registro_id):
-    if not current_user.is_authenticated or getattr(current_user, 'email', '') != 'admin':
+    if not current_user.is_authenticated or not is_admin(current_user):
         return redirect(url_for('login'))
 
     try:
@@ -451,7 +459,7 @@ def eliminar_usuario_registrado(evento_id, registro_id):
 @app.route('/evento/editar/<int:evento_id>', methods=['GET', 'POST'])
 @login_required
 def editar_evento(evento_id):
-    if not current_user.is_authenticated or getattr(current_user, 'email', '') != 'admin':
+    if not current_user.is_authenticated or not is_admin(current_user):
         return redirect(url_for('login'))
     
     evento = get_event_from_db(evento_id)
@@ -482,7 +490,7 @@ def editar_evento(evento_id):
 @app.route('/evento/eliminar/<int:evento_id>', methods=['POST'])
 @login_required
 def eliminar_evento(evento_id):
-    if not current_user.is_authenticated or getattr(current_user, 'email', '') != 'admin':
+    if not current_user.is_authenticated or not is_admin(current_user):
         return redirect(url_for('login'))
     
     try:
@@ -710,6 +718,124 @@ def logout():
     session.pop('_flashes', None)
     logout_user()
     return redirect(url_for('login'))
+
+# ============ RUTAS ADMIN - GESTIÓN DE ORGANIZADORES ============
+
+@app.route('/admin/organizadores', methods=['GET', 'POST'])
+@login_required
+def gestionar_organizadores():
+    """Panel de admin para gestionar organizadores (convertir usuarios en organizadores)"""
+    if not current_user.is_authenticated or not is_admin(current_user):
+        flash('No tienes permiso para acceder a esta función.', 'error')
+        return redirect(url_for('login'))
+    
+    if request.method == 'POST':
+        user_id = request.form.get('user_id')
+        new_rol = request.form.get('rol')
+        
+        if user_id and new_rol in ['estudiante', 'organizador', 'admin']:
+            try:
+                ModelUser.update_rol(db, user_id, new_rol)
+                rol_display = 'Estudiante' if new_rol == 'estudiante' else ('Organizador' if new_rol == 'organizador' else 'Administrador')
+                flash(f'Rol actualizado correctamente a "{rol_display}".', 'success')
+            except Exception as ex:
+                print(f"[ERROR] gestionar_organizadores POST: {ex}")
+                flash(f'Error al actualizar el rol: {str(ex)}', 'error')
+        else:
+            flash('Datos inválidos.', 'error')
+        
+        return redirect(url_for('gestionar_organizadores'))
+    
+    try:
+        usuarios = ModelUser.get_all_users(db)
+        print(f"[DEBUG] gestionar_organizadores - usuarios encontrados: {len(usuarios)}")
+    except Exception as ex:
+        print(f"[ERROR] gestionar_organizadores GET: {ex}")
+        usuarios = []
+        flash(f'Error al cargar usuarios: {str(ex)}', 'error')
+    
+    return render_template('admin_organizadores.html', usuarios=usuarios)
+
+# ============ RUTAS ORGANIZADOR - VALIDACIÓN QR ============
+
+@app.route('/evento/<int:evento_id>/validar-qr', methods=['GET', 'POST'])
+@login_required
+def validar_qr_evento(evento_id):
+    """Página de validación de QR para organizadores (solo GET para acceso)"""
+    # Verificar que sea organizador
+    if not (current_user.is_authenticated and getattr(current_user, 'rol', 'estudiante') in ['organizador', 'admin']):
+        flash('No tienes permiso para acceder a esta función.', 'error')
+        return redirect(url_for('ver_eventos'))
+    
+    evento = get_event_from_db(evento_id)
+    if evento is None:
+        return "Evento no encontrado", 404
+    
+    return render_template('validar_qr.html', evento=evento, evento_id=evento_id)
+
+@app.route('/api/validar-qr-entrada', methods=['POST'])
+@login_required
+def api_validar_qr_entrada():
+    """API para validar entrada por DNI o QR"""
+    try:
+        # Verificar que sea organizador
+        if not (current_user.is_authenticated and getattr(current_user, 'rol', 'estudiante') in ['organizador', 'admin']):
+            return jsonify({'success': False, 'message': 'No autorizado'}), 200
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'message': 'Datos inválidos'}), 200
+        
+        evento_id = data.get('evento_id')
+        dni = data.get('dni', '').strip()
+        qr_data = data.get('qr_data', '').strip()
+        
+        if not evento_id:
+            return jsonify({'success': False, 'message': 'Evento no especificado'}), 200
+        
+        # Si se envía QR, extraer el DNI del QR
+        if qr_data:
+            # Formato esperado: "Evento:evento_id|DNI:dni_usuario|Nombre:nombre_usuario|Registro:registro_id"
+            qr_parts = qr_data.split('|')
+            qr_dict = {}
+            for part in qr_parts:
+                if ':' in part:
+                    key, value = part.split(':', 1)
+                    qr_dict[key.strip()] = value.strip()
+            
+            dni = qr_dict.get('DNI', '').strip()
+            qr_evento_id = qr_dict.get('Evento', '').strip()
+            
+            if str(qr_evento_id) != str(evento_id):
+                return jsonify({'success': False, 'message': 'El QR no corresponde a este evento'}), 200
+        
+        if not dni:
+            return jsonify({'success': False, 'message': 'DNI inválido o no proporcionado'}), 200
+        
+        # Buscar si el usuario está registrado en el evento
+        cursor = db.connection.cursor()
+        cursor.execute(
+            "SELECT id, nombre_usuario, qr_code FROM registrados WHERE evento_id = %s AND dni_usuario = %s LIMIT 1",
+            (evento_id, dni)
+        )
+        registro = cursor.fetchone()
+        
+        if registro:
+            return jsonify({
+                'success': True,
+                'message': f'✓ Entrada permitida - {registro[1]}',
+                'nombre_usuario': registro[1],
+                'dni': dni
+            }), 200
+        else:
+            return jsonify({
+                'success': False,
+                'message': f'✗ Usuario no registrado en este evento (DNI: {dni})'
+            }), 200
+    
+    except Exception as ex:
+        print(f"[ERROR] api_validar_qr_entrada: {ex}")
+        return jsonify({'success': False, 'message': f'Error del servidor: {str(ex)}'}), 200
 
 if __name__ == '__main__':
     app.run()

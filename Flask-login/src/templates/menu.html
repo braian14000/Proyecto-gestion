@@ -6,6 +6,8 @@
 <style>
   .menu-card { max-width: 360px; margin: 6rem auto; }
   .btn-pill { border-radius: 30px; padding: 12px 24px; }
+  .admin-menu { border-top: 2px solid #dc3545; padding-top: 1rem; margin-top: 1rem; }
+  .organizador-menu { border-top: 2px solid #0d6efd; padding-top: 1rem; margin-top: 1rem; }
 </style>
 {% endblock %}
 
@@ -13,15 +15,48 @@
   <div class="container">
     <div class="menu-card card shadow-sm p-4">
       <div class="text-center mb-3">
-        <img src="{{ url_for('static', filename='img/flask.png') }}" alt="logo" style="max-height:80px;">
+        <img src="{{ url_for('static', filename='/Logo_Modelo.png') }}" alt="logo" style="max-height:80px;">
         <h4 class="mt-2">Gestión de eventos</h4>
         <p class="text-muted">Bienvenido, {{ usuario }}</p>
+        {% if current_user.rol %}
+        <p class="text-muted">
+          <small>Rol: 
+            {% if current_user.rol == 'admin' %}
+              <span class="badge bg-danger">Administrador</span>
+            {% elif current_user.rol == 'organizador' %}
+              <span class="badge bg-primary">Organizador</span>
+            {% else %}
+              <span class="badge bg-secondary">Estudiante</span>
+            {% endif %}
+          </small>
+        </p>
+        {% endif %}
       </div>
 
       <div class="d-grid gap-3">
         <a class="btn btn-light btn-pill shadow-sm" href="{{ url_for('ver_eventos') }}">Ver Eventos</a>
         <a class="btn btn-light btn-pill shadow-sm" href="{{ url_for('mis_eventos') }}">Eventos Anotados</a>
         <a class="btn btn-light btn-pill shadow-sm" href="{{ url_for('ver_eventos') }}">Próximos Eventos</a>
+        
+        <!-- Menú para Organizadores -->
+        {% if current_user.rol == 'organizador' or current_user.rol == 'admin' %}
+        <div class="organizador-menu">
+          <h6 class="text-primary mb-2">Funciones de Organizador</h6>
+          <a class="btn btn-primary btn-pill shadow-sm" href="{{ url_for('admin_dashboard') }}"> Crear Evento</a>
+          <a class="btn btn-info btn-pill shadow-sm" href="{{ url_for('ver_eventos') }}"> Mis Eventos</a>
+          <a class="btn btn-info btn-pill shadow-sm" href="{{ url_for('ver_eventos') }}"> Validar QR</a>
+        </div>
+        {% endif %}
+
+        <!-- Menú para Admin -->
+        {% if current_user.rol == 'admin' %}
+        <div class="admin-menu">
+          <h6 class="text-danger mb-2">Funciones de Administrador</h6>
+          <a class="btn btn-danger btn-pill shadow-sm" href="{{ url_for('admin_dashboard') }}"> Panel Admin</a>
+          <a class="btn btn-warning btn-pill shadow-sm" href="{{ url_for('gestionar_organizadores') }}"> Gestionar Organizadores</a>
+        </div>
+        {% endif %}
+
         <a class="btn btn-danger btn-pill shadow-sm" href="{{ url_for('logout') }}">Cerrar sesión</a>
       </div>
     </div>

@@ -1,0 +1,106 @@
+{% extends 'base.html' %}
+
+{% block title %}Gestión de Organizadores{% endblock %}
+
+{% block customCSS %}
+<style>
+  .container-admin { max-width: 1000px; margin: 2rem auto; }
+  .table-responsive { overflow-x: auto; }
+  .badge-usuario { background-color: #6c757d; }
+  .badge-organizador { background-color: #0d6efd; }
+  .badge-admin { background-color: #dc3545; }
+  .btn-sm { padding: 0.25rem 0.5rem; font-size: 0.875rem; }
+  .btn-cambiar-rol { margin: 0.25rem; }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="container-admin">
+  <h2 class="mb-4">Gestión de Organizadores</h2>
+  
+  {% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <div class="alert-container mb-4">
+    {% for category, message in messages %}
+      <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    {% endfor %}
+    </div>
+  {% endif %}
+  {% endwith %}
+
+  <div class="card">
+    <div class="card-body">
+      <p class="text-muted">Aquí puedes convertir usuarios en organizadores de eventos y gestionar sus roles.</p>
+      
+      <div class="table-responsive">
+        <table class="table table-hover">
+          <thead class="table-light">
+            <tr>
+              <th>ID</th>
+              <th>Usuario</th>
+              <th>Email</th>
+              <th>DNI</th>
+              <th>Teléfono</th>
+              <th>Rol Actual</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% if usuarios %}
+              {% for usuario in usuarios %}
+              <tr>
+                <td><strong>{{ usuario.id }}</strong></td>
+                <td>{{ usuario.username }}</td>
+                <td>{{ usuario.email }}</td>
+                <td>{{ usuario.dni }}</td>
+                <td>{{ usuario.telefono if usuario.telefono else '-' }}</td>
+                <td>
+                  <span class="badge badge-{{ usuario.rol }}">
+                    {% if usuario.rol == 'admin' %}
+                      Administrador
+                    {% elif usuario.rol == 'organizador' %}
+                      Organizador
+                    {% else %}
+                      Estudiante
+                    {% endif %}
+                  </span>
+                </td>
+                <td>
+                  <form method="post" style="display: inline;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="user_id" value="{{ usuario.id }}">
+                    
+                    {% if usuario.rol != 'organizador' %}
+                    <button type="submit" name="rol" value="organizador" class="btn btn-sm btn-primary btn-cambiar-rol">
+                      Hacer Organizador
+                    </button>
+                    {% endif %}
+                    
+                    {% if usuario.rol != 'estudiante' %}
+                    <button type="submit" name="rol" value="estudiante" class="btn btn-sm btn-secondary btn-cambiar-rol">
+                      Hacer Estudiante
+                    </button>
+                    {% endif %}
+                  </form>
+                </td>
+              </tr>
+              {% endfor %}
+            {% else %}
+              <tr>
+                <td colspan="7" class="text-center text-muted">No hay usuarios registrados</td>
+              </tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-4">
+    <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">← Volver al Admin</a>
+  </div>
+</div>
+{% endblock %}

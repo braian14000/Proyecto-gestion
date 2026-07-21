@@ -4,9 +4,15 @@
 
 {% block body %}
   <div class="container mt-5">
-    <div class="mb-4">
-      <h3>Eventos anotados</h3>
-      <p class="text-muted">Aquí puedes ver tus eventos registrados y cancelar tu asistencia si cambias de planes.</p>
+    <div class="mb-4 d-flex flex-column flex-md-row justify-content-between align-items-start gap-3">
+      <div>
+        <h3>Eventos anotados</h3>
+        <p class="text-muted">Aquí puedes ver tus eventos registrados y cancelar tu asistencia si cambias de planes.</p>
+      </div>
+      <div class="d-flex gap-2">
+        <a class="btn btn-secondary" href="{{ url_for('ver_eventos') }}">Ir a eventos</a>
+        <a class="btn btn-secondary" href="{{ url_for('home') }}">Ir al menú</a>
+      </div>
     </div>
     {% if registros and registros|length > 0 %}
       <div class="list-group mt-3">

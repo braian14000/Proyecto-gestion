@@ -1,0 +1,304 @@
+{% extends 'base.html' %}
+
+{% block title %}Validación de QR - {{ evento.titulo }}{% endblock %}
+
+{% block customCSS %}
+<style>
+  .validation-container { max-width: 600px; margin: 2rem auto; }
+  .validation-card { border: 2px solid #0d6efd; border-radius: 10px; }
+  .video-container { 
+    max-width: 100%; 
+    border-radius: 8px; 
+    overflow: hidden;
+    background-color: #000;
+    display: none;
+  }
+  video { width: 100%; height: auto; }
+  .dni-input-group { margin: 1.5rem 0; }
+  .btn-scan { width: 100%; margin: 0.5rem 0; }
+  .result-message { 
+    padding: 1rem; 
+    margin: 1rem 0; 
+    border-radius: 8px;
+    display: none;
+  }
+  .result-success { 
+    background-color: #d4edda; 
+    border: 1px solid #c3e6cb;
+    color: #155724;
+  }
+  .result-error { 
+    background-color: #f8d7da; 
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+  }
+  .separator { text-align: center; margin: 1.5rem 0; }
+  .separator::before { content: '— '; }
+  .separator::after { content: ' —'; }
+  .hidden { display: none; }
+  .loading { text-align: center; }
+  .spinner { margin: 0 auto; }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="validation-container">
+  <div class="card validation-card">
+    <div class="card-header bg-primary text-white">
+      <h4 class="mb-0">Validación de Entrada</h4>
+      <small>{{ evento.titulo }}</small>
+    </div>
+    
+    <div class="card-body p-4">
+      <!-- Información del evento -->
+      <div class="alert alert-info">
+        <strong>Evento:</strong> {{ evento.titulo }}<br>
+        <strong>Fecha:</strong> {{ evento.fecha }}<br>
+        <strong>Lugar:</strong> {{ evento.lugar }}
+      </div>
+
+      <!-- Mensajes de resultado -->
+      <div class="result-message" id="resultMessage"></div>
+
+      <!-- Escaneo por QR -->
+      <div class="qr-section">
+        <h5>Escanear Código QR</h5>
+        
+        <div class="video-container" id="videoContainer">
+          <video id="video" playsinline></video>
+        </div>
+
+        <div class="d-grid gap-2">
+          <button type="button" class="btn btn-primary btn-scan" id="btnStartCamera" onclick="initQRScanner()">
+             Iniciar Cámara para Escanear
+          </button>
+          <button type="button" class="btn btn-secondary btn-scan hidden" id="btnStopCamera" onclick="stopQRScanner()">
+            ⏹ Detener Cámara
+          </button>
+        </div>
+
+        <div class="loading hidden" id="scanLoading">
+          <div class="spinner">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">Escaneando...</span>
+            </div>
+            <p class="mt-2">Apunta el QR hacia la cámara...</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Separador -->
+      <div class="separator">o</div>
+
+      <!-- Validación por DNI -->
+      <div class="dni-section">
+        <h5>Validar por DNI</h5>
+        
+        <div class="dni-input-group">
+          <input 
+            type="text" 
+            class="form-control form-control-lg" 
+            id="dniInput" 
+            placeholder="Ingresa el DNI del usuario"
+            maxlength="20"
+            onkeypress="if(event.key === 'Enter') validateByDni()"
+          >
+        </div>
+
+        <button type="button" class="btn btn-success btn-scan" onclick="validateByDni()">
+           Validar por DNI
+        </button>
+      </div>
+
+      <!-- Información de ayuda -->
+      <div class="alert alert-light mt-4 text-muted small">
+        <strong> Ayuda:</strong>
+        <ul class="mb-0 mt-2">
+          <li>Usa la cámara para escanear el código QR de la entrada del usuario</li>
+          <li>Si no tienes acceso a la cámara, ingresa el DNI manualmente</li>
+          <li>Se validará si el usuario está registrado en este evento</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card-footer">
+      <a href="{{ url_for('ver_eventos') }}" class="btn btn-secondary">← Volver</a>
+      <span class="text-muted float-end">Evento ID: {{ evento_id }}</span>
+    </div>
+  </div>
+</div>
+
+
+<script src="https://nimiq.github.io/qr-scanner/qr-scanner.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.js"></script>
+
+<script>
+  let videoElement;
+  let canvasElement;
+  let canvasContext;
+  let animationId;
+  let isScannerActive = false;
+
+  function initQRScanner() {
+    const videoContainer = document.getElementById('videoContainer');
+    const btnStartCamera = document.getElementById('btnStartCamera');
+    const btnStopCamera = document.getElementById('btnStopCamera');
+    const scanLoading = document.getElementById('scanLoading');
+
+    videoElement = document.getElementById('video');
+    canvasElement = document.createElement('canvas');
+    canvasContext = canvasElement.getContext('2d');
+
+    videoContainer.style.display = 'block';
+    btnStartCamera.classList.add('hidden');
+    btnStopCamera.classList.remove('hidden');
+    scanLoading.classList.remove('hidden');
+    isScannerActive = true;
+
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+      .then(stream => {
+        videoElement.srcObject = stream;
+        videoElement.play();
+        scanQRCode();
+      })
+      .catch(err => {
+        showResult(false, 'Error al acceder a la cámara: ' + err.message);
+        stopQRScanner();
+      });
+  }
+
+  function scanQRCode() {
+    if (!isScannerActive) return;
+
+    if (videoElement.readyState === videoElement.HAVE_ENOUGH_DATA) {
+      canvasElement.width = videoElement.videoWidth;
+      canvasElement.height = videoElement.videoHeight;
+      canvasContext.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
+
+      const imageData = canvasContext.getImageData(0, 0, canvasElement.width, canvasElement.height);
+      const code = jsQR(imageData.data, imageData.width, imageData.height);
+
+      if (code) {
+        validateQRCode(code.data);
+        return;
+      }
+    }
+
+    animationId = requestAnimationFrame(scanQRCode);
+  }
+
+  function stopQRScanner() {
+    const videoContainer = document.getElementById('videoContainer');
+    const btnStartCamera = document.getElementById('btnStartCamera');
+    const btnStopCamera = document.getElementById('btnStopCamera');
+    const scanLoading = document.getElementById('scanLoading');
+
+    isScannerActive = false;
+
+    if (videoElement && videoElement.srcObject) {
+      videoElement.srcObject.getTracks().forEach(track => track.stop());
+    }
+
+    if (animationId) {
+      cancelAnimationFrame(animationId);
+    }
+
+    videoContainer.style.display = 'none';
+    btnStartCamera.classList.remove('hidden');
+    btnStopCamera.classList.add('hidden');
+    scanLoading.classList.add('hidden');
+  }
+
+  const csrfToken = "{{ csrf_token() }}";
+
+  function validateQRCode(qrData) {
+    stopQRScanner();
+    
+    const eventoId = {{ evento_id }};
+    
+    fetch('/api/validar-qr-entrada', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrfToken,
+      },
+      body: JSON.stringify({
+        evento_id: eventoId,
+        qr_data: qrData
+      })
+    })
+    .then(response => {
+      return response.json();
+    })
+    .then(data => {
+      if (data.success) {
+        showResult(true, data.message);
+      } else {
+        showResult(false, data.message);
+      }
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      showResult(false, 'Error al validar: ' + error.message);
+    });
+  }
+
+  function validateByDni() {
+    const dniInput = document.getElementById('dniInput');
+    const dni = dniInput.value.trim();
+
+    if (!dni) {
+      showResult(false, 'Por favor, ingresa un DNI');
+      return;
+    }
+
+    const eventoId = {{ evento_id }};
+
+    fetch('/api/validar-qr-entrada', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrfToken,
+      },
+      body: JSON.stringify({
+        evento_id: eventoId,
+        dni: dni
+      })
+    })
+    .then(response => {
+      return response.json();
+    })
+    .then(data => {
+      if (data.success) {
+        showResult(true, data.message);
+        dniInput.value = '';
+      } else {
+        showResult(false, data.message);
+      }
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      showResult(false, 'Error al validar: ' + error.message);
+    });
+  }
+
+  function showResult(success, message) {
+    const resultDiv = document.getElementById('resultMessage');
+    resultDiv.className = 'result-message ' + (success ? 'result-success' : 'result-error');
+    resultDiv.innerHTML = message;
+    resultDiv.style.display = 'block';
+
+    // Auto-ocultar después de 5 segundos
+    setTimeout(() => {
+      resultDiv.style.display = 'none';
+    }, 5000);
+  }
+
+  // Permitir Enter en el input de DNI
+  document.getElementById('dniInput').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+      validateByDni();
+    }
+  });
+</script>
+{% endblock %}

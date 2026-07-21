@@ -27,7 +27,7 @@
                     <p style="color: #999; font-size: 13px;">{{ evento.lugar }}</p>
                     <a href="{{ url_for('detalle_evento', evento_id=evento.id) }}" class="btn" style="display: block; text-align: center;">Ver detalle</a>
                     
-                    {% if usuario == 'admin' %}
+                    {% if usuario == 'admin' or current_user.rol == 'admin' %}
                     <div class="botones-admin">
                         <a href="{{ url_for('ver_usuarios_evento', evento_id=evento.id) }}" class="btn-usuarios">Ver usuarios</a>
                         <a href="{{ url_for('editar_evento', evento_id=evento.id) }}" class="btn-editar">Editar</a>
@@ -37,12 +37,18 @@
                         </form>
                     </div>
                     {% endif %}
+
+                    {% if current_user.rol in ['organizador', 'admin'] %}
+                    <div class="botones-organizador" style="margin-top: 10px;">
+                        <a href="{{ url_for('validar_qr_evento', evento_id=evento.id) }}" class="btn" style="display: block; text-align: center; background-color: #28a745;">Validar QR 🔓</a>
+                    </div>
+                    {% endif %}
                 </div>
             {% endfor %}
         </div>
 
         <div class="enlaces" style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #f0f0f0;">
-            {% if usuario == 'admin' %}
+            {% if usuario == 'admin' or current_user.rol == 'admin' %}
                 <a href="/admin" style="margin-right: 20px;">+ Agregar evento</a>
             {% endif %}
         </div>

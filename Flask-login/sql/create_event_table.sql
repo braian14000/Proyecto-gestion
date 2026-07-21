@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS `user` (
   `telefono` VARCHAR(30) DEFAULT NULL,
   `email` VARCHAR(150) NOT NULL,
   `dni` VARCHAR(30) DEFAULT NULL,
+  `rol` ENUM('estudiante', 'organizador', 'admin') NOT NULL DEFAULT 'estudiante',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_user_email` (`email`),
