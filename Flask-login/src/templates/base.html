@@ -6,17 +6,87 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}{% endblock %}</title>
-    <link rel="shortcut icon" href="{{ url_for('static', filename='img/flask.svg') }}">
+    <link rel="shortcut icon" href="{{ url_for('static', filename='img/LogoUTN_Gestion_De_Eventos.png') }}">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/css/bootstrap.min.css" rel="stylesheet"
         integrity="sha384-KyZXEAg3QhqLMpG8r+8fhAXLRk2vvoC2f3B09zVXn8CA5QIVfZOJ3BCsw2P0p/We" crossorigin="anonymous">
+    <style>
+        body {
+            background-image: url("{{ url_for('static', filename='img/image.png') }}");
+            background-size: cover;
+            background-position: center center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            min-height: 100vh;
+        }
+
+        /* Cambiar todos los botones Bootstrap a azul */
+        .btn-primary, .btn-primary:hover, .btn-primary:active, .btn-primary:focus {
+            background-color: #04047f !important;
+            border-color: #04047f !important;
+        }
+        .btn-secondary, .btn-secondary:hover, .btn-secondary:active, .btn-secondary:focus {
+            background-color: #04047f !important;
+            border-color: #04047f !important;
+            color: white !important;
+        }
+        .btn-success, .btn-success:hover, .btn-success:active, .btn-success:focus {
+            background-color: #04047f !important;
+            border-color: #04047f !important;
+        }
+        .btn-info, .btn-info:hover, .btn-info:active, .btn-info:focus {
+            background-color: #04047f !important;
+            border-color: #04047f !important;
+        }
+        .btn-outline-primary, .btn-outline-primary:hover, .btn-outline-primary:active, .btn-outline-primary:focus {
+            color: #04047f !important;
+            border-color: #04047f !important;
+        }
+        .btn-outline-primary:hover {
+            background-color: #04047f !important;
+            color: white !important;
+        }
+        .btn-outline-secondary, .btn-outline-secondary:hover, .btn-outline-secondary:active, .btn-outline-secondary:focus {
+            color: #04047f !important;
+            border-color: #04047f !important;
+        }
+        .btn-outline-secondary:hover {
+            background-color: #04047f !important;
+            color: white !important;
+        }
+        .btn-soporte {
+            position: fixed !important;
+            bottom: 20px !important;
+            right: 20px !important;
+            z-index: 2000 !important;
+            background-color: #04047f !important;
+            color: #ffffff !important;
+            border: none !important;
+            padding: 10px 16px !important;
+            border-radius: 6px !important;
+            font-weight: 600 !important;
+            transition: background-color 0.3s ease !important;
+            display: inline-block !important;
+            text-decoration: none !important;
+        }
+        .btn-soporte:hover {
+            background-color: #03035f !important;
+            color: #ffffff !important;
+            text-decoration: none !important;
+        }
+        .btn-soporte:active {
+            transform: scale(0.98);
+        }
+    </style>
     {% block customCSS %}
     {% endblock %}
 </head>
 
 <body class="text-center">
-    {% if current_user.is_authenticated and request.endpoint != 'home' and request.endpoint != 'mis_eventos' and request.endpoint != 'mostrar_qr' and not (request.endpoint == 'detalle_evento' and request.args.get('origin') == 'mis_eventos') %}
-    <div class="container mt-3 text-start">
-        <a href="{{ url_for('home') }}" class="btn btn-sm btn-secondary">Volver al inicio</a>
+    {% if request.endpoint != 'home' %}
+    {% endif %}
+    {% if request.endpoint not in ['login', 'register'] %}
+    <div style="position: fixed !important; bottom: 20px !important; right: 20px !important; z-index: 2000 !important; display: inline-flex !important; gap: 8px !important; justify-content: center !important; align-items: center !important;">
+        <a href="{{ url_for('soporte') }}" class="btn-soporte" target="_blank" rel="noopener noreferrer">Soporte</a>
     </div>
     {% endif %}
     {% block body %}

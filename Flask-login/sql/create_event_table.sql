@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS `event` (
   `fecha` DATE NOT NULL,
   `descripcion` TEXT,
   `lugar` VARCHAR(200),
+  `created_by` INT UNSIGNED NULL,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -35,6 +36,7 @@ CREATE TABLE IF NOT EXISTS `registrados` (
   `dni_usuario` VARCHAR(30) NOT NULL,
   `nombre_usuario` VARCHAR(150) NOT NULL,
   `qr_code` VARCHAR(255) NULL,
+  `asistido` TINYINT(1) NOT NULL DEFAULT 0,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_registrados_evento_dni` (`evento_id`, `dni_usuario`),
