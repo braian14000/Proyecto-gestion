@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+
+{% block title %}Eventos del organizador{% endblock %}
+
+{% block body %}
+  <div class="container mt-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <div>
+        <h3>Eventos del organizador</h3>
+        <p class="text-muted">Acá podés ver los eventos que creaste y gestionar su contenido.</p>
+      </div>
+      <a class="btn btn-secondary" href="{{ url_for('home') }}">Ir al menú</a>
+    </div>
+
+    {% if eventos and eventos|length > 0 %}
+      <div class="list-group">
+        {% for evento in eventos %}
+          <div class="list-group-item d-flex justify-content-between align-items-start flex-wrap gap-2">
+            <div>
+              <h5 class="mb-1">{{ evento.titulo }}</h5>
+              <p class="mb-1 text-muted">{{ evento.fecha }} · {{ evento.lugar }}</p>
+              {% if evento.descripcion %}
+                <small class="text-muted">{{ evento.descripcion }}</small>
+              {% endif %}
+              <div class="mt-2">
+                <span class="badge bg-info text-dark">{{ evento.inscritos_count }} anotados</span>
+              </div>
+            </div>
+            <div class="d-flex flex-column gap-2 align-items-end">
+              <span class="badge bg-primary">Creado por vos</span>
+              <a class="btn btn-sm btn-outline-primary" href="{{ url_for('ver_usuarios_evento', evento_id=evento.id) }}">Ver usuarios</a>
+              <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('editar_evento', evento_id=evento.id) }}">Editar</a>
+              <form method="post" action="{{ url_for('eliminar_evento', evento_id=evento.id) }}" style="display:inline-block; margin:0;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('¿Seguro que querés eliminar este evento?');">Eliminar</button>
+              </form>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="alert alert-info">
+        Todavía no creaste eventos para mostrar.
+      </div>
+    {% endif %}
+  </div>
+{% endblock %}

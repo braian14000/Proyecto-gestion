@@ -38,6 +38,10 @@
   .hidden { display: none; }
   .loading { text-align: center; }
   .spinner { margin: 0 auto; }
+  @media (max-width: 768px) {
+    .validation-container { margin: 0.5rem; }
+    .btn-scan { padding: 0.8rem 1rem; font-size: 1rem; }
+  }
 </style>
 {% endblock %}
 
@@ -65,7 +69,7 @@
         <h5>Escanear Código QR</h5>
         
         <div class="video-container" id="videoContainer">
-          <video id="video" playsinline></video>
+          <video id="video" autoplay muted playsinline></video>
         </div>
 
         <div class="d-grid gap-2">
@@ -114,7 +118,8 @@
       <div class="alert alert-light mt-4 text-muted small">
         <strong> Ayuda:</strong>
         <ul class="mb-0 mt-2">
-          <li>Usa la cámara para escanear el código QR de la entrada del usuario</li>
+          <li>Usa la cámara del celular o del equipo para escanear el QR</li>
+          <li>Si tu navegador pide permiso, acepta el acceso a la cámara</li>
           <li>Si no tienes acceso a la cámara, ingresa el DNI manualmente</li>
           <li>Se validará si el usuario está registrado en este evento</li>
         </ul>
@@ -149,20 +154,33 @@
     canvasElement = document.createElement('canvas');
     canvasContext = canvasElement.getContext('2d');
 
+    videoElement.setAttribute('playsinline', 'true');
+    videoElement.setAttribute('autoplay', 'true');
+    videoElement.setAttribute('muted', 'true');
+
     videoContainer.style.display = 'block';
     btnStartCamera.classList.add('hidden');
     btnStopCamera.classList.remove('hidden');
     scanLoading.classList.remove('hidden');
     isScannerActive = true;
 
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+    navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: { ideal: 'environment' },
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
+      }
+    })
       .then(stream => {
         videoElement.srcObject = stream;
-        videoElement.play();
+        return videoElement.play();
+      })
+      .then(() => {
         scanQRCode();
       })
       .catch(err => {
-        showResult(false, 'Error al acceder a la cámara: ' + err.message);
+        showResult(false, 'No se pudo acceder a la cámara. Asegúrate de aceptar el permiso y de usar un navegador compatible.');
+        console.error(err);
         stopQRScanner();
       });
   }

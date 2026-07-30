@@ -1,54 +1,109 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agregar Evento</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head>
-<body>
-    <div class="container">
-        <h2>Crear Evento</h2>
+{% extends 'base.html' %}
 
-        {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            <div class="flash-messages">
-            {% for category, message in messages %}
-                <div class="flash {{ category }}">{{ message }}</div>
-            {% endfor %}
-            </div>
-        {% endif %}
-        {% endwith %}
+{% block title %}Panel Admin{% endblock %}
 
-        <form method="post">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            
-            <div class="form-group">
-                <input type="text" name="titulo" placeholder="Título del evento" required>
-            </div>
-            
-            <div class="form-group">
-                <input type="date" name="fecha" required>
-            </div>
-            
-            <div class="form-group">
-                <input type="text" name="lugar" placeholder="Ubicación" required>
-            </div>
-            
-            <div class="form-group">
-                <textarea name="descripcion" placeholder="Descripción" rows="5" required></textarea>
-            </div>
-            
-            <button type="submit">Crear evento</button>
-        </form>
+{% block customCSS %}
+<style>
+  .menu-card { max-width: 720px; margin: 4rem auto; }
+  .btn-pill { border-radius: 999px; padding: 12px 24px; font-weight: 600; }
+  .admin-actions { display: grid; gap: 1rem; margin-bottom: 1.5rem; }
+  .admin-actions .btn { border-radius: 16px; min-height: 56px; padding: 1rem 1.25rem; font-size: 1rem; transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease; }
+  .admin-actions .btn:hover { transform: translateY(-2px); }
+  .btn-admin-primary { background: #04047f; border: none; color: #ffffff; }
+  .btn-admin-primary:hover { background: #03035f; }
+  .btn-admin-secondary { background: #f4f6f8; color: #04047f; border: 1px solid #d7dde3; }
+  .btn-admin-secondary:hover { background: #e9edf2; }
+  .btn-admin-outline { background: #ffffff; color: #04047f; border: 1px solid #04047f; }
+  .btn-admin-outline:hover { background: #f5f7f9; }
+  .btn-admin-logout { background: #d9534f; color: #ffffff; border: none; }
+  .btn-admin-logout:hover { background: #c9302c; }
+  .admin-panel-card, .form-card { border-radius: 24px; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.08); overflow: hidden; }
+  .admin-panel-card .card-header { background: #f8f9fa; border-bottom: 1px solid #e9ecef; padding: 1.4rem 1.6rem; }
+  .admin-panel-card .card-body, .form-card .card-body { padding: 1.8rem 1.6rem; }
+  .admin-panel-card h2 { font-weight: 700; margin-bottom: 0.25rem; }
+  .admin-panel-card p { color: #5a6872; margin-bottom: 1.5rem; }
+  .form-card .form-control, .form-card textarea { border-radius: 12px; }
+</style>
+{% endblock %}
 
-        <div class="enlaces">
-            {% if current_user.rol == 'admin' %}
-            <a href="{{ url_for('gestionar_organizadores') }}" style="margin-right: 20px;">👥 Gestionar Organizadores</a>
-            {% endif %}
-            <a href="{{ url_for('ver_eventos') }}" style="margin-right: 20px;">← Ver todos los eventos</a>
-            <a href="/logout">Cerrar sesión</a>
-        </div>
+{% block body %}
+<div class="container">
+  <div class="admin-panel-card card">
+    <div class="card-header text-start">
+      <h2>Panel de Administración</h2>
+      <p>Accede a las funciones de administración de forma clara y ordenada.</p>
     </div>
-</body>
-</html>
+    <div class="card-body">
+      <div class="admin-actions" id="admin-actions">
+        <a href="#crear-evento" class="btn btn-admin-primary btn-pill shadow-sm">Crear Evento</a>
+        <a href="{{ url_for('ver_eventos') }}" class="btn btn-admin-secondary btn-pill shadow-sm">Ver Eventos</a>
+        <a href="{{ url_for('home') }}" class="btn btn-outline-secondary btn-pill shadow-sm">Volver al menú</a>
+        {% if current_user.rol == 'admin' %}
+          <a href="{{ url_for('gestionar_organizadores') }}" class="btn btn-admin-outline btn-pill shadow-sm">Administrar Usuarios</a>
+        {% endif %}
+        <a href="{{ url_for('logout') }}" class="btn btn-admin-logout btn-pill shadow-sm">Cerrar sesión</a>
+      </div>
+    </div>
+  </div>
+
+  <div id="crear-evento" class="form-card card mt-4" style="display: none;">
+    <div class="card-body">
+      <h3 class="mb-3">Crear nuevo evento</h3>
+      {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="mb-3">
+        {% for category, message in messages %}
+          <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+        {% endfor %}
+        </div>
+      {% endif %}
+      {% endwith %}
+
+      <form method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="mb-3">
+          <label class="form-label">Título</label>
+          <input type="text" class="form-control" name="titulo" placeholder="Título del evento" required>
+        </div>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Fecha</label>
+            <input type="date" class="form-control" name="fecha" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Ubicación</label>
+            <input type="text" class="form-control" name="lugar" placeholder="Ubicación" required>
+          </div>
+        </div>
+        <div class="mb-3 mt-3">
+          <label class="form-label">Descripción</label>
+          <textarea class="form-control" name="descripcion" placeholder="Descripción" rows="5" required></textarea>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+          <button type="submit" class="btn btn-admin-primary btn-pill">Crear evento</button>
+          <a href="{{ url_for('home') }}" class="btn btn-outline-secondary btn-pill">Volver</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const createLink = document.querySelector('a[href="#crear-evento"]');
+    const actions = document.getElementById('admin-actions');
+    const formCard = document.getElementById('crear-evento');
+
+    if (createLink && actions && formCard) {
+      createLink.addEventListener('click', function (event) {
+        event.preventDefault();
+        actions.style.display = 'none';
+        formCard.style.display = 'block';
+        formCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    }
+  });
+</script>
+{% endblock %}

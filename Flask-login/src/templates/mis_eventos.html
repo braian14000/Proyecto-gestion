@@ -6,11 +6,15 @@
   <div class="container mt-5">
     <div class="mb-4 d-flex flex-column flex-md-row justify-content-between align-items-start gap-3">
       <div>
-        <h3>Eventos anotados</h3>
-        <p class="text-muted">Aquí puedes ver tus eventos registrados y cancelar tu asistencia si cambias de planes.</p>
+        {% if modo == 'organizador' %}
+          <h3>Mis eventos</h3>
+          <p class="text-muted">Aquí verás los eventos que creaste y los que estás participando como asistente.</p>
+        {% else %}
+          <h3>Eventos anotados</h3>
+          <p class="text-muted">Aquí puedes ver tus eventos registrados y cancelar tu asistencia si cambias de planes.</p>
+        {% endif %}
       </div>
       <div class="d-flex gap-2">
-        <a class="btn btn-secondary" href="{{ url_for('ver_eventos') }}">Ir a eventos</a>
         <a class="btn btn-secondary" href="{{ url_for('home') }}">Ir al menú</a>
       </div>
     </div>
@@ -21,10 +25,19 @@
             <div class="mb-2">
               <h5 class="mb-1">{{ r.titulo }}</h5>
               <small class="text-muted">{{ r.fecha }} - {{ r.lugar }}</small>
+              {% if r.asistido %}
+                <div class="mt-2"><span class="badge bg-primary">Asistió</span></div>
+              {% elif r.qr_code %}
+                <div class="mt-2"><span class="badge bg-success">Registrado</span></div>
+              {% else %}
+                <div class="mt-2"><span class="badge bg-warning text-dark">Sin QR</span></div>
+              {% endif %}
             </div>
             <div class="btn-group">
               <a class="btn btn-sm btn-outline-primary" href="{{ url_for('detalle_evento', evento_id=r.evento_id, origin='mis_eventos') }}">Ver detalles</a>
-              <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('mostrar_qr', registro_id=r.registro_id, origin='mis_eventos') }}">Ver QR</a>
+              {% if r.qr_code %}
+                <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('mostrar_qr', registro_id=r.registro_id, origin='mis_eventos') }}">Ver QR</a>
+              {% endif %}
               <form method="post" action="{{ url_for('cancelar_asistencia', registro_id=r.registro_id) }}" style="display:inline-block; margin:0;">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('¿Deseas cancelar tu asistencia a este evento?');">Borrar asistencia</button>
@@ -34,7 +47,11 @@
         {% endfor %}
       </div>
     {% else %}
-      <div class="alert alert-info mt-3">No estás anotado en ningún evento todavía.</div>
+      {% if modo == 'organizador' %}
+        <div class="alert alert-info mt-3">No tenés eventos creados ni anotaciones para mostrar todavía.</div>
+      {% else %}
+        <div class="alert alert-info mt-3">No estás anotado en ningún evento todavía.</div>
+      {% endif %}
       <a class="btn btn-primary" href="{{ url_for('ver_eventos') }}">Ver eventos</a>
     {% endif %}
   </div>
