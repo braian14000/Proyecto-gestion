@@ -12,7 +12,7 @@ class ModelUser():
             
             if row != None:
                 hashed_password = row[3]
-                rol = row[6] if len(row) > 6 else 'estudiante'
+                rol = (row[6] or 'estudiante').strip().lower() if len(row) > 6 else 'estudiante'
                 user_match = User(
                     row[0],
                     row[1],
@@ -37,7 +37,7 @@ class ModelUser():
             row = cursor.fetchone()
             
             if row != None:
-                rol = row[5] if len(row) > 5 else 'estudiante'
+                rol = (row[5] or 'estudiante').strip().lower() if len(row) > 5 else 'estudiante'
                 return User(row[0], row[1], row[2], None, row[3], row[4], rol)
             else:
                 return None
@@ -57,7 +57,7 @@ class ModelUser():
             users = []
             if rows:
                 for row in rows:
-                    rol = row[5] if len(row) > 5 else 'estudiante'
+                    rol = (row[5] or 'estudiante').strip().lower() if len(row) > 5 else 'estudiante'
                     user = User(row[0], row[1], row[2], None, row[3], row[4], rol)
                     users.append(user)
             

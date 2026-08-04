@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+
+{% block content %}
+  <div class="container">
+    <h2>Generar Certificado</h2>
+    <form method="post">
+      <div>
+        <label for="nombre">Nombre</label>
+        <input id="nombre" name="nombre" required value="{{ nombre or '' }}" />
+      </div>
+      <div>
+        <label for="apellido">Apellido</label>
+        <input id="apellido" name="apellido" required value="{{ apellido or '' }}" />
+      </div>
+      <div>
+        <label for="dni">DNI</label>
+        <input id="dni" name="dni" required value="{{ dni or '' }}" />
+      </div>
+      <div>
+        <label for="evento">Evento</label>
+        <input id="evento" name="evento" required value="{{ evento or '' }}" />
+      </div>
+      <button type="submit">Generar y descargar</button>
+    </form>
+  </div>
+{% endblock %}

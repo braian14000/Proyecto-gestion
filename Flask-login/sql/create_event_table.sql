@@ -25,6 +25,9 @@ CREATE TABLE IF NOT EXISTS `event` (
   `fecha` DATE NOT NULL,
   `descripcion` TEXT,
   `lugar` VARCHAR(200),
+  `capacidad_maxima` INT NOT NULL,
+  `finalizado` TINYINT(1) NOT NULL DEFAULT 0,
+  `created_by` INT UNSIGNED NULL,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -35,11 +38,12 @@ CREATE TABLE IF NOT EXISTS `registrados` (
   `dni_usuario` VARCHAR(30) NOT NULL,
   `nombre_usuario` VARCHAR(150) NOT NULL,
   `qr_code` VARCHAR(255) NULL,
+  `asistido` TINYINT(1) NOT NULL DEFAULT 0,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_registrados_evento_dni` (`evento_id`, `dni_usuario`),
   CONSTRAINT `fk_registrados_evento` FOREIGN KEY (`evento_id`) REFERENCES `event` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT INTO `event` (titulo, fecha, descripcion, lugar) VALUES
-('Concierto de Rock', '2026-07-15', 'Una noche increíble con las mejores bandas locales.', 'Estadio Principal');
+INSERT INTO `event` (titulo, fecha, descripcion, lugar, capacidad_maxima) VALUES
+('Concierto de Rock', '2026-07-15', 'Una noche increíble con las mejores bandas locales.', 'Estadio Principal', 200);

@@ -17,6 +17,9 @@
         <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 30px;">
             <p><strong>📅 Fecha:</strong> {{ evento.fecha }}</p>
             <p><strong>Lugar:</strong> {{ evento.lugar }}</p>
+            <p><strong>Capacidad máxima:</strong> {{ evento.capacidad_maxima }}</p>
+            <p><strong>Inscritos:</strong> {{ evento.inscritos_count }} / {{ evento.capacidad_maxima }}</p>
+            <p><strong>Cupos disponibles:</strong> {{ cupos_disponibles }}</p>
         </div>
         
         <div style="line-height: 1.8; color: #444;">
@@ -34,18 +37,26 @@
         {% endif %}
         {% endwith %}
 
+        {% if evento.finalizado %}
+            <div class="flash warning" style="margin-top: 20px;">Este evento ya finalizó y quedó cerrado para nuevas inscripciones.</div>
+        {% endif %}
+
         {% if origin == 'mis_eventos' %}
             <div class="btn-group" style="margin-top: 20px;">
                 <a class="btn btn-primary" href="{{ url_for('ver_eventos') }}">Ir a eventos</a>
                 <a class="btn btn-secondary" href="{{ back_url }}">Volver atrás</a>
             </div>
         {% else %}
-            {% if not registrado and current_user.email != 'admin' and current_user.username != 'admin' %}
-                <form method="post" action="{{ url_for('registrar_evento', evento_id=evento.id) }}" onsubmit="return confirm('¿Estás seguro de que deseas anotarte a este evento?');">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <button type="submit" class="btn">Anotarme</button>
-                </form>
-            {% elif registrado %}
+            {% if not evento.finalizado and not registrado and current_user.email != 'admin' and current_user.username != 'admin' %}
+                {% if cupos_disponibles > 0 %}
+                    <form method="post" action="{{ url_for('registrar_evento', evento_id=evento.id) }}" onsubmit="return confirm('¿Estás seguro de que deseas anotarte a este evento?');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn">Anotarme</button>
+                    </form>
+                {% else %}
+                    <div class="flash error" style="margin-top: 20px;">No hay cupos disponibles para este evento.</div>
+                {% endif %}
+            {% elif registrado and not evento.finalizado %}
                 <div class="flash success" style="margin-top: 20px;">Ya estás anotado en este evento.</div>
             {% endif %}
 

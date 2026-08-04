@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, send_file
 from flask_mysqldb import MySQL
 from flask_wtf.csrf import CSRFProtect
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
@@ -9,15 +9,68 @@ import os
 import random
 from datetime import datetime, timedelta
 import re
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 from config import config
 from models.ModeUsers import ModelUser
 from models.entities.users import User
+from certificates import generar_certificado
 
 app = Flask(__name__)
 app.config.from_object(config['development'])
 
+# Configuración de Gmail para soporte
+GMAIL_USER = "gestioneventocontrasena12@gmail.com"
+GMAIL_PASS = "jlrwsofpaxaksxoq" 
+SUPPORT_EMAIL = os.getenv("SUPPORT_EMAIL", GMAIL_USER)
+
 db = MySQL(app)
+
+
+def ensure_event_table_has_capacity():
+    try:
+        with app.app_context():
+            cursor = db.connection.cursor()
+            cursor.execute("SHOW TABLES LIKE 'event'")
+            if cursor.fetchone() is None:
+                cursor.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS `event` (
+                      `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                      `titulo` VARCHAR(200) NOT NULL,
+                      `fecha` DATE NOT NULL,
+                      `descripcion` TEXT,
+                      `lugar` VARCHAR(200),
+                      `capacidad_maxima` INT NOT NULL DEFAULT 1,
+                      `finalizado` TINYINT(1) NOT NULL DEFAULT 0,
+                      `created_by` INT UNSIGNED NULL,
+                      `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                      PRIMARY KEY (`id`)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+                    """
+                )
+                db.connection.commit()
+                print("[INFO] Se creó la tabla event con capacidad_maxima y finalizado.")
+                return
+
+            cursor.execute("SHOW COLUMNS FROM `event` LIKE 'capacidad_maxima'")
+            if cursor.fetchone() is None:
+                cursor.execute("ALTER TABLE `event` ADD COLUMN `capacidad_maxima` INT NOT NULL DEFAULT 1")
+                db.connection.commit()
+                print("[INFO] Se agregó la columna capacidad_maxima a la tabla event.")
+
+            cursor.execute("SHOW COLUMNS FROM `event` LIKE 'finalizado'")
+            if cursor.fetchone() is None:
+                cursor.execute("ALTER TABLE `event` ADD COLUMN `finalizado` TINYINT(1) NOT NULL DEFAULT 0")
+                db.connection.commit()
+                print("[INFO] Se agregó la columna finalizado a la tabla event.")
+    except Exception as ex:
+        print(f"[WARN] No se pudo asegurar la estructura de la tabla event: {ex}")
+
+
+ensure_event_table_has_capacity()
 csrf = CSRFProtect(app)
 login_manager_app = LoginManager(app)
 login_manager_app.login_view = 'login'
@@ -26,6 +79,7 @@ login_manager_app.login_view = 'login'
 def load_user(id):
     try:
         if str(id) == '0' or str(id) == 'admin':
+            # Crear usuario admin en memoria con rol 'admin' para que las plantillas lo detecten
             return User(0, 'admin', 'admin', None, '', '', 'admin')
         return ModelUser.get_by_id(db, id)
     except Exception:
@@ -51,16 +105,10 @@ def get_current_user_dni_username():
             print(f"[ERROR] get_current_user_dni_username: {ex}")
     return dni, username
 
-def is_admin(user):
-    """Verifica si el usuario es administrador"""
-    return (getattr(user, 'email', '') == 'admin' or 
-            getattr(user, 'username', '') == 'admin' or 
-            getattr(user, 'rol', '') == 'admin')
-
 def get_events_from_db():
     try:
         cursor = db.connection.cursor()
-        cursor.execute("SELECT id, titulo, fecha, descripcion, lugar FROM event ORDER BY fecha")
+        cursor.execute("SELECT id, titulo, fecha, descripcion, lugar, capacidad_maxima, finalizado FROM event ORDER BY fecha")
         rows = cursor.fetchall()
         events = []
         for r in rows:
@@ -69,7 +117,38 @@ def get_events_from_db():
                 'titulo': r[1],
                 'fecha': r[2].strftime('%Y-%m-%d') if hasattr(r[2], 'strftime') else str(r[2]),
                 'descripcion': r[3],
-                'lugar': r[4]
+                'lugar': r[4],
+                'capacidad_maxima': int(r[5]) if r[5] is not None else 0,
+                'finalizado': bool(r[6])
+            })
+        return events
+    except Exception:
+        return []
+
+
+def get_events_created_by_user(db_connection, user_id):
+    try:
+        cursor = db_connection.connection.cursor()
+        cursor.execute(
+            "SELECT id, titulo, fecha, descripcion, lugar, capacidad_maxima, finalizado FROM event WHERE created_by = %s ORDER BY fecha DESC, id DESC",
+            (user_id,)
+        )
+        rows = cursor.fetchall()
+        events = []
+        for r in rows:
+            evento_id = r[0]
+            cursor2 = db_connection.connection.cursor()
+            cursor2.execute("SELECT COUNT(*) FROM registrados WHERE evento_id = %s", (evento_id,))
+            inscritos_count = cursor2.fetchone()[0]
+            events.append({
+                'id': evento_id,
+                'titulo': r[1],
+                'fecha': r[2].strftime('%Y-%m-%d') if hasattr(r[2], 'strftime') else str(r[2]),
+                'descripcion': r[3],
+                'lugar': r[4],
+                'capacidad_maxima': int(r[5]) if r[5] is not None else 0,
+                'finalizado': bool(r[6]),
+                'inscritos_count': inscritos_count
             })
         return events
     except Exception:
@@ -78,7 +157,15 @@ def get_events_from_db():
 def get_event_from_db(event_id):
     try:
         cursor = db.connection.cursor()
-        cursor.execute("SELECT id, titulo, fecha, descripcion, lugar FROM event WHERE id = %s", (event_id,))
+        cursor.execute(
+            """
+            SELECT e.id, e.titulo, e.fecha, e.descripcion, e.lugar, e.capacidad_maxima, e.finalizado, e.created_by,
+                   (SELECT COUNT(*) FROM registrados r WHERE r.evento_id = e.id) AS inscritos_count
+            FROM event e
+            WHERE e.id = %s
+            """,
+            (event_id,)
+        )
         r = cursor.fetchone()
         if not r:
             return None
@@ -87,7 +174,11 @@ def get_event_from_db(event_id):
             'titulo': r[1],
             'fecha': r[2].strftime('%Y-%m-%d') if hasattr(r[2], 'strftime') else str(r[2]),
             'descripcion': r[3],
-            'lugar': r[4]
+            'lugar': r[4],
+            'capacidad_maxima': int(r[5]) if r[5] is not None else 0,
+            'finalizado': bool(r[6]),
+            'created_by': r[7],
+            'inscritos_count': int(r[8]) if r[8] is not None else 0
         }
     except Exception:
         return None
@@ -107,7 +198,7 @@ def get_registered_users(db, evento_id):
     try:
         cursor = db.connection.cursor()
         cursor.execute(
-            "SELECT id, dni_usuario, nombre_usuario, created_at FROM registrados WHERE evento_id = %s ORDER BY created_at",
+            "SELECT id, dni_usuario, nombre_usuario, created_at, asistido FROM registrados WHERE evento_id = %s ORDER BY created_at",
             (evento_id,)
         )
         rows = cursor.fetchall()
@@ -116,7 +207,8 @@ def get_registered_users(db, evento_id):
                 'id': r[0],
                 'dni': r[1],
                 'nombre': r[2],
-                'created_at': r[3].strftime('%Y-%m-%d %H:%M') if hasattr(r[3], 'strftime') else str(r[3])
+                'created_at': r[3].strftime('%Y-%m-%d %H:%M') if hasattr(r[3], 'strftime') else str(r[3]),
+                'asistido': bool(r[4])
             }
             for r in rows
         ]
@@ -129,7 +221,7 @@ def get_user_registrations(db, dni_usuario):
         cursor = db.connection.cursor()
         cursor.execute(
             """
-            SELECT r.id, r.evento_id, r.dni_usuario, r.nombre_usuario, r.qr_code, e.titulo, e.fecha, e.descripcion, e.lugar
+            SELECT r.id, r.evento_id, r.dni_usuario, r.nombre_usuario, r.qr_code, r.asistido, e.titulo, e.fecha, e.descripcion, e.lugar
             FROM registrados r
             LEFT JOIN event e ON e.id = r.evento_id
             WHERE r.dni_usuario = %s
@@ -146,10 +238,11 @@ def get_user_registrations(db, dni_usuario):
                 'dni': r[2],
                 'nombre': r[3],
                 'qr_code': r[4],
-                'titulo': r[5],
-                'fecha': r[6].strftime('%Y-%m-%d') if hasattr(r[6], 'strftime') else str(r[6]),
-                'descripcion': r[7],
-                'lugar': r[8]
+                'asistido': bool(r[5]),
+                'titulo': r[6],
+                'fecha': r[7].strftime('%Y-%m-%d') if hasattr(r[7], 'strftime') else str(r[7]),
+                'descripcion': r[8],
+                'lugar': r[9]
             })
         return regs
     except Exception as ex:
@@ -188,18 +281,19 @@ def generate_qr_code(evento_id, dni_usuario, nombre_usuario, registro_id):
 # ============ MAIL CONFIG ============
 
 from flask_mail import Mail, Message
-from dotenv import load_dotenv
 
-load_dotenv()
+# Usar GMAIL_USER y GMAIL_PASS definidos arriba (no cargar .env)
 app.config.update({
-    'MAIL_SERVER': os.getenv('MAIL_SERVER', 'smtp.gmail.com'),
-    'MAIL_PORT': int(os.getenv('MAIL_PORT', 587)),
-    'MAIL_USE_TLS': os.getenv('MAIL_USE_TLS', 'True').lower() in ('true','1','yes'),
-    'MAIL_USERNAME': os.getenv('MAIL_USER'),
-    'MAIL_PASSWORD': os.getenv('MAIL_PASS'),
-    'MAIL_DEFAULT_SENDER': os.getenv('MAIL_USER')
+    'MAIL_SERVER': 'smtp.gmail.com',
+    'MAIL_PORT': 587,
+    'MAIL_USE_TLS': True,
+    'MAIL_USE_SSL': False,
+    'MAIL_USERNAME': GMAIL_USER,
+    'MAIL_PASSWORD': GMAIL_PASS,
+    'MAIL_DEFAULT_SENDER': GMAIL_USER
 })
 mail = Mail(app)
+print(f"[INFO] Mail configurado con usuario: {GMAIL_USER}")
 
 # ============ RUTAS PÚBLICAS ============
 
@@ -219,9 +313,9 @@ def login():
         password = request.form.get('password') or request.form.get('contraseña')
 
         if email == 'admin' and password == 'admin':
-            admin_user = User(0, 'admin', 'admin', None, '', '', 'admin')  # rol='admin'
+            admin_user = User(0, 'admin', 'admin', None, '')
             login_user(admin_user)
-            return redirect(url_for('ver_eventos'))
+            return redirect(url_for('home'))
 
         user = User(0, "", email, password)
         logged_user = ModelUser.login(db, user)
@@ -253,11 +347,11 @@ def register():
 
         telefono = telefono.strip()
         dni = dni.strip()
-        if not dni.isdigit():
-            flash("El DNI debe contener solo números.")
+        if not dni.isdigit() or len(dni) > 8:
+            flash("El DNI debe contener solo números y como máximo 8 dígitos.")
             return render_template('auth/register.html')
-        if not re.fullmatch(r'[0-9+\-() ]+', telefono):
-            flash("El Teléfono sólo puede contener números y los signos + - ( ) y espacios.")
+        if len(telefono) > 10 or not re.fullmatch(r'[0-9+\-() ]+', telefono):
+            flash("El Teléfono sólo puede contener números y los signos + - ( ) y espacios, con un máximo de 10 caracteres.")
             return render_template('auth/register.html')
 
         hashed_password = generate_password_hash(password)
@@ -289,17 +383,21 @@ def register():
 @app.route('/forgot-password', methods=['GET', 'POST'])
 def forgot_password():
     if request.method == 'POST':
-        identifier = request.form.get('identifier', '').strip()
-        if not identifier:
-            flash('Ingrese correo o DNI.')
+        dni = request.form.get('dni', '').strip()
+        if not dni:
+            flash('Ingrese el DNI asociado.')
+            return render_template('auth/forgot.html')
+
+        if not dni.isdigit():
+            flash('El DNI debe contener solo números.')
             return render_template('auth/forgot.html')
 
         try:
             cursor = db.connection.cursor()
-            cursor.execute("SELECT id, email FROM `user` WHERE email = %s OR dni = %s LIMIT 1", (identifier, identifier))
+            cursor.execute("SELECT id, email FROM `user` WHERE dni = %s LIMIT 1", (dni,))
             user = cursor.fetchone()
             if not user:
-                flash('No se encontró una cuenta asociada.')
+                flash('No se encontró una cuenta asociada al DNI ingresado.')
                 return render_template('auth/forgot.html')
 
             user_id, user_email = user[0], user[1]
@@ -307,20 +405,29 @@ def forgot_password():
             expires = (datetime.utcnow() + timedelta(minutes=15)).isoformat()
             session[f'pw_reset_{user_id}'] = {'code': code, 'expires': expires}
             session['reset_request_user_id'] = user_id
-            session['reset_request_identifier'] = identifier
+            session['reset_request_identifier'] = dni
             session['reset_request_email'] = user_email
 
-            if app.config.get('MAIL_USERNAME') and app.config.get('MAIL_PASSWORD') and user_email:
+            if user_email:
                 try:
-                    msg = Message('Código de recuperación', recipients=[user_email])
-                    msg.body = f'Tu código de recuperación es: {code} (válido 15 minutos).'
-                    mail.send(msg)
-                    flash('Se envió un código al correo asociado.')
+                    msg = MIMEMultipart()
+                    msg['From'] = GMAIL_USER
+                    msg['To'] = user_email
+                    msg['Subject'] = 'Código de recuperación'
+                    msg.attach(MIMEText(f'Tu código de recuperación es: {code} (válido 15 minutos).', 'plain'))
+
+                    server = smtplib.SMTP('smtp.gmail.com', 587)
+                    server.starttls()
+                    server.login(GMAIL_USER, GMAIL_PASS)
+                    server.send_message(msg)
+                    server.quit()
+
+                    flash('Se envió un nuevo código al correo asociado.')
                 except Exception as ex:
                     print(f'Error SMTP al enviar correo: {ex}')
-                    flash(f'No se pudo enviar el correo. Código (modo prueba): {code}')
+                    flash('No se pudo enviar el correo. Revisa la configuración SMTP y vuelve a intentarlo.')
             else:
-                flash(f'Código (modo prueba): {code}')
+                flash('No se encontró un correo electrónico válido asociado a ese DNI.')
 
             return redirect(url_for('reset_password'))
         except Exception:
@@ -402,40 +509,141 @@ def new_password():
 @app.route('/admin', methods=['GET', 'POST'])
 @login_required
 def admin_dashboard():
-    # Permitir admin y organizador para crear eventos
-    if not current_user.is_authenticated or getattr(current_user, 'rol', 'estudiante') not in ['admin', 'organizador']:
-        flash('No tienes permiso para crear eventos.', 'error')
-        return redirect(url_for('ver_eventos'))
+    if (not current_user.is_authenticated) or (getattr(current_user, 'rol', '') not in ('admin', 'organizador')):
+        return redirect(url_for('login'))
 
     if request.method == 'POST':
-        titulo = request.form.get('titulo')
-        fecha = request.form.get('fecha')
-        descripcion = request.form.get('descripcion')
-        lugar = request.form.get('lugar')
+        titulo = request.form.get('titulo', '').strip()
+        fecha = request.form.get('fecha', '').strip()
+        descripcion = request.form.get('descripcion', '').strip()
+        lugar = request.form.get('lugar', '').strip()
+        capacidad_maxima = request.form.get('capacidad_maxima', '').strip()
+
+        try:
+            capacidad = int(capacidad_maxima)
+            if not titulo or not fecha or not descripcion or not lugar or capacidad <= 0:
+                raise ValueError
+        except ValueError:
+            flash('La capacidad máxima es obligatoria y debe ser un número mayor a 0.', 'error')
+            return render_template('admin.html')
 
         try:
             cursor = db.connection.cursor()
-            cursor.execute(
-                "INSERT INTO event (titulo, fecha, descripcion, lugar) VALUES (%s, %s, %s, %s)",
-                (titulo, fecha, descripcion, lugar)
-            )
+            user_id = getattr(current_user, 'id', None)
+            if user_id in (None, 0):
+                cursor.execute(
+                    "INSERT INTO event (titulo, fecha, descripcion, lugar, capacidad_maxima) VALUES (%s, %s, %s, %s, %s)",
+                    (titulo, fecha, descripcion, lugar, capacidad)
+                )
+            else:
+                try:
+                    cursor.execute(
+                        "INSERT INTO event (titulo, fecha, descripcion, lugar, capacidad_maxima, created_by) VALUES (%s, %s, %s, %s, %s, %s)",
+                        (titulo, fecha, descripcion, lugar, capacidad, user_id)
+                    )
+                except Exception:
+                    cursor.execute(
+                        "INSERT INTO event (titulo, fecha, descripcion, lugar, capacidad_maxima) VALUES (%s, %s, %s, %s, %s)",
+                        (titulo, fecha, descripcion, lugar, capacidad)
+                    )
             db.connection.commit()
-        except Exception:
-            pass
+        except Exception as ex:
+            flash(f'No se pudo crear el evento: {ex}', 'error')
+            return render_template('admin.html')
 
         return redirect(url_for('ver_eventos'))
 
     return render_template('admin.html')
 
+
+@app.route('/crear-evento-organizador', methods=['GET', 'POST'])
+@login_required
+def crear_evento_organizador():
+    if (not current_user.is_authenticated) or (getattr(current_user, 'rol', '') not in ('admin', 'organizador')):
+        return redirect(url_for('login'))
+
+    if request.method == 'POST':
+        titulo = request.form.get('titulo', '').strip()
+        fecha = request.form.get('fecha', '').strip()
+        descripcion = request.form.get('descripcion', '').strip()
+        lugar = request.form.get('lugar', '').strip()
+        capacidad_maxima = request.form.get('capacidad_maxima', '').strip()
+
+        try:
+            capacidad = int(capacidad_maxima)
+            if not titulo or not fecha or not descripcion or not lugar or capacidad <= 0:
+                raise ValueError
+        except ValueError:
+            flash('Completá todos los campos y la capacidad máxima debe ser un número mayor a 0.', 'error')
+            return render_template('crear_evento_organizador.html')
+
+        try:
+            cursor = db.connection.cursor()
+            user_id = getattr(current_user, 'id', None)
+            if user_id in (None, 0):
+                cursor.execute(
+                    "INSERT INTO event (titulo, fecha, descripcion, lugar, capacidad_maxima) VALUES (%s, %s, %s, %s, %s)",
+                    (titulo, fecha, descripcion, lugar, capacidad)
+                )
+            else:
+                try:
+                    cursor.execute(
+                        "INSERT INTO event (titulo, fecha, descripcion, lugar, capacidad_maxima, created_by) VALUES (%s, %s, %s, %s, %s, %s)",
+                        (titulo, fecha, descripcion, lugar, capacidad, user_id)
+                    )
+                except Exception:
+                    cursor.execute(
+                        "INSERT INTO event (titulo, fecha, descripcion, lugar, capacidad_maxima) VALUES (%s, %s, %s, %s, %s)",
+                        (titulo, fecha, descripcion, lugar, capacidad)
+                    )
+            db.connection.commit()
+            flash('Evento creado correctamente.', 'success')
+            return redirect(url_for('eventos_organizador'))
+        except Exception as ex:
+            flash(f'No se pudo crear el evento: {ex}', 'error')
+            return render_template('crear_evento_organizador.html')
+
+    return render_template('crear_evento_organizador.html')
+
+@app.route('/gestionar-organizadores', methods=['GET', 'POST'])
+@login_required
+def gestionar_organizadores():
+    if not current_user.is_authenticated or getattr(current_user, 'email', '') != 'admin':
+        return redirect(url_for('login'))
+
+    if request.method == 'POST':
+        user_id = request.form.get('user_id')
+        nuevo_rol = request.form.get('rol')
+
+        if user_id and nuevo_rol in ('organizador', 'estudiante'):
+            try:
+                ModelUser.update_rol(db, user_id, nuevo_rol)
+                flash('Rol actualizado correctamente.', 'success')
+            except Exception as ex:
+                flash(f'No se pudo actualizar el rol: {ex}', 'error')
+        else:
+            flash('No se recibió un cambio de rol válido.', 'error')
+
+        return redirect(url_for('gestionar_organizadores'))
+
+    usuarios = ModelUser.get_all_users(db)
+    return render_template('admin_organizadores.html', usuarios=usuarios)
+
 @app.route('/evento/<int:evento_id>/usuarios')
 @login_required
 def ver_usuarios_evento(evento_id):
-    if not current_user.is_authenticated or not is_admin(current_user):
+    if not current_user.is_authenticated or getattr(current_user, 'rol', '') not in ('admin', 'organizador'):
         return redirect(url_for('login'))
 
     evento = get_event_from_db(evento_id)
     if evento is None:
         return "Evento no encontrado", 404
+
+    if evento.get('finalizado'):
+        flash('Este evento ya finalizó, por lo que no se pueden hacer cambios sobre sus inscripciones.', 'warning')
+        if getattr(current_user, 'rol', '') == 'admin':
+            return redirect(url_for('ver_eventos'))
+        return redirect(url_for('eventos_organizador'))
 
     usuarios = get_registered_users(db, evento_id)
     return render_template('usuarios_registrados.html', evento=evento, usuarios=usuarios)
@@ -443,8 +651,15 @@ def ver_usuarios_evento(evento_id):
 @app.route('/evento/<int:evento_id>/usuarios/eliminar/<int:registro_id>', methods=['POST'])
 @login_required
 def eliminar_usuario_registrado(evento_id, registro_id):
-    if not current_user.is_authenticated or not is_admin(current_user):
+    if not current_user.is_authenticated or getattr(current_user, 'rol', '') not in ('admin', 'organizador'):
         return redirect(url_for('login'))
+
+    evento = get_event_from_db(evento_id)
+    if evento is None:
+        return "Evento no encontrado", 404
+    if evento.get('finalizado'):
+        flash('Este evento ya finalizó y no se pueden eliminar usuarios.', 'error')
+        return redirect(url_for('ver_usuarios_evento', evento_id=evento_id))
 
     try:
         cursor = db.connection.cursor()
@@ -459,24 +674,44 @@ def eliminar_usuario_registrado(evento_id, registro_id):
 @app.route('/evento/editar/<int:evento_id>', methods=['GET', 'POST'])
 @login_required
 def editar_evento(evento_id):
-    if not current_user.is_authenticated or not is_admin(current_user):
+    if not current_user.is_authenticated:
         return redirect(url_for('login'))
-    
+
     evento = get_event_from_db(evento_id)
     if evento is None:
         return "Evento no encontrado", 404
-    
+
+    es_admin = getattr(current_user, 'rol', '') == 'admin' or getattr(current_user, 'email', '') == 'admin'
+    es_propietario = getattr(evento, 'get', lambda *args, **kwargs: None)('created_by') in (None, getattr(current_user, 'id', None))
+
+    if not es_admin and not es_propietario:
+        flash("No tenés permiso para editar este evento.", "error")
+        return redirect(url_for('eventos_organizador'))
+
+    if evento.get('finalizado'):
+        flash('Este evento ya finalizó y no se puede editar.', 'error')
+        return redirect(url_for('ver_eventos'))
+
     if request.method == 'POST':
-        titulo = request.form.get('titulo')
-        fecha = request.form.get('fecha')
-        descripcion = request.form.get('descripcion')
-        lugar = request.form.get('lugar')
+        titulo = request.form.get('titulo', '').strip()
+        fecha = request.form.get('fecha', '').strip()
+        descripcion = request.form.get('descripcion', '').strip()
+        lugar = request.form.get('lugar', '').strip()
+        capacidad_maxima = request.form.get('capacidad_maxima', '').strip()
+
+        try:
+            capacidad = int(capacidad_maxima)
+            if not titulo or not fecha or not descripcion or not lugar or capacidad <= 0:
+                raise ValueError
+        except ValueError:
+            flash('La capacidad máxima es obligatoria y debe ser un número mayor a 0.', 'error')
+            return render_template('editar_evento.html', evento=evento)
 
         try:
             cursor = db.connection.cursor()
             cursor.execute(
-                "UPDATE event SET titulo = %s, fecha = %s, descripcion = %s, lugar = %s WHERE id = %s",
-                (titulo, fecha, descripcion, lugar, evento_id)
+                "UPDATE event SET titulo = %s, fecha = %s, descripcion = %s, lugar = %s, capacidad_maxima = %s WHERE id = %s",
+                (titulo, fecha, descripcion, lugar, capacidad, evento_id)
             )
             db.connection.commit()
             flash("Evento actualizado exitosamente.", "success")
@@ -490,8 +725,25 @@ def editar_evento(evento_id):
 @app.route('/evento/eliminar/<int:evento_id>', methods=['POST'])
 @login_required
 def eliminar_evento(evento_id):
-    if not current_user.is_authenticated or not is_admin(current_user):
+    if not current_user.is_authenticated or getattr(current_user, 'rol', '') not in ('admin', 'organizador'):
         return redirect(url_for('login'))
+
+    evento = get_event_from_db(evento_id)
+    if evento is None:
+        return "Evento no encontrado", 404
+
+    if evento.get('finalizado'):
+        flash('No se puede eliminar un evento finalizado.', 'error')
+        if getattr(current_user, 'rol', '') == 'admin':
+            return redirect(url_for('ver_eventos'))
+        return redirect(url_for('eventos_organizador'))
+
+    es_admin = getattr(current_user, 'rol', '') == 'admin' or getattr(current_user, 'email', '') == 'admin'
+    es_propietario = getattr(evento, 'get', lambda *args, **kwargs: None)('created_by') in (None, getattr(current_user, 'id', None))
+
+    if not es_admin and not es_propietario:
+        flash("No tenés permiso para eliminar este evento.", "error")
+        return redirect(url_for('eventos_organizador'))
     
     try:
         cursor = db.connection.cursor()
@@ -500,17 +752,16 @@ def eliminar_evento(evento_id):
         flash("Evento eliminado exitosamente.", "success")
     except Exception as ex:
         flash("Ocurrió un error al eliminar el evento.", "error")
-    
-    return redirect(url_for('ver_eventos'))
+
+    if es_admin:
+        return redirect(url_for('ver_eventos'))
+    return redirect(url_for('eventos_organizador'))
 
 # ============ RUTAS PROTEGIDAS - USUARIOS ============
 
 @app.route('/home')
 @login_required
 def home():
-    if getattr(current_user, 'email', '') == 'admin' or getattr(current_user, 'username', '') == 'admin':
-        return redirect(url_for('admin_dashboard'))
-
     usuario_display = getattr(current_user, 'username', None) or getattr(current_user, 'email', '')
     return render_template('menu.html', usuario=usuario_display)
 
@@ -525,7 +776,8 @@ def ver_eventos():
             'titulo': 'Concierto de Rock',
             'fecha': '2026-07-15',
             'descripcion': 'Una noche increíble con las mejores bandas locales.',
-            'lugar': 'Estadio Principal'
+            'lugar': 'Estadio Principal',
+            'capacidad_maxima': 200
         }]
 
     usuario_display = getattr(current_user, 'username', None) or getattr(current_user, 'email', '')
@@ -542,8 +794,18 @@ def detalle_evento(evento_id):
     registrado = False
     if user_dni:
         registrado = is_user_registered(db, evento_id, user_dni)
+    cupos_disponibles = max(evento.get('capacidad_maxima', 0) - evento.get('inscritos_count', 0), 0)
     back_url = url_for('mis_eventos') if origin == 'mis_eventos' else url_for('ver_eventos')
-    return render_template('detalle.html', evento=evento, registrado=registrado, origin=origin, back_url=back_url)
+    if evento.get('finalizado'):
+        flash('Este evento ya finalizó y quedó cerrado para nuevas inscripciones o validaciones.', 'warning')
+    return render_template(
+        'detalle.html',
+        evento=evento,
+        registrado=registrado,
+        origin=origin,
+        back_url=back_url,
+        cupos_disponibles=cupos_disponibles
+    )
 
 @app.route('/evento/registrar/<int:evento_id>', methods=['POST'])
 @login_required
@@ -556,24 +818,47 @@ def registrar_evento(evento_id):
 
         try:
             cursor = db.connection.cursor()
+            cursor.execute("SELECT capacidad_maxima, finalizado FROM event WHERE id = %s LIMIT 1", (evento_id,))
+            evento = cursor.fetchone()
+            if not evento:
+                flash('Evento no encontrado.', 'error')
+                return redirect(url_for('ver_eventos'))
+
+            capacidad_maxima = int(evento[0]) if evento[0] is not None else 0
+            finalizado = bool(evento[1])
+            if finalizado:
+                flash('Este evento ya finalizó y no acepta más inscripciones.', 'error')
+                return redirect(url_for('detalle_evento', evento_id=evento_id))
+
+            cursor.execute("SELECT COUNT(*) FROM registrados WHERE evento_id = %s", (evento_id,))
+            inscritos_actuales = int(cursor.fetchone()[0])
+
+            if capacidad_maxima <= 0:
+                flash('Este evento no tiene una capacidad máxima válida.', 'error')
+                return redirect(url_for('detalle_evento', evento_id=evento_id))
+
+            if inscritos_actuales >= capacidad_maxima:
+                flash('El evento ya alcanzó su capacidad máxima.', 'error')
+                return redirect(url_for('detalle_evento', evento_id=evento_id))
+
             cursor.execute(
                 "INSERT INTO registrados (evento_id, dni_usuario, nombre_usuario) VALUES (%s, %s, %s)",
                 (evento_id, dni, username)
             )
             db.connection.commit()
-            
+
             registro_id = cursor.lastrowid
             print(f"[DEBUG] Registro insertado id={registro_id} evento={evento_id} dni={dni}")
-            
+
             qr_path = generate_qr_code(evento_id, dni, username, registro_id)
-            
+
             if qr_path:
                 cursor.execute(
                     "UPDATE registrados SET qr_code = %s WHERE id = %s",
                     (qr_path, registro_id)
                 )
                 db.connection.commit()
-            
+
             flash('Te has anotado correctamente al evento. Tu código QR ha sido generado.', 'success')
         except Exception as ex:
             db.connection.rollback()
@@ -584,6 +869,20 @@ def registrar_evento(evento_id):
                 flash('Ocurrió un error al anotarte. Intenta nuevamente.', 'error')
 
     return redirect(url_for('detalle_evento', evento_id=evento_id))
+
+@app.route('/eventos-organizador')
+@login_required
+def eventos_organizador():
+    """Muestra los eventos creados por el organizador autenticado."""
+    if not current_user.is_authenticated or getattr(current_user, 'rol', '') not in ('admin', 'organizador'):
+        return redirect(url_for('login'))
+
+    user_id = getattr(current_user, 'id', None)
+    eventos = []
+    if user_id not in (None, 0):
+        eventos = get_events_created_by_user(db, user_id)
+
+    return render_template('eventos_organizador.html', eventos=eventos)
 
 @app.route('/mis-eventos')
 @login_required
@@ -601,6 +900,233 @@ def mis_eventos():
     return render_template('mis_eventos.html', registros=registros)
 
 
+@app.route('/evento/<int:evento_id>/finalizar', methods=['POST'])
+@login_required
+def finalizar_evento(evento_id):
+    if not current_user.is_authenticated or getattr(current_user, 'rol', '') not in ('admin', 'organizador'):
+        return redirect(url_for('login'))
+
+    evento = get_event_from_db(evento_id)
+    if evento is None:
+        return "Evento no encontrado", 404
+
+    es_admin = getattr(current_user, 'rol', '') == 'admin' or getattr(current_user, 'email', '') == 'admin'
+    es_propietario = getattr(evento, 'get', lambda *args, **kwargs: None)('created_by') in (None, getattr(current_user, 'id', None))
+    if not es_admin and not es_propietario:
+        flash('No tenés permiso para finalizar este evento.', 'error')
+        return redirect(url_for('eventos_organizador'))
+
+    if evento.get('finalizado'):
+        flash('Este evento ya está finalizado.', 'warning')
+        return redirect(url_for('ver_eventos'))
+
+    try:
+        cursor = db.connection.cursor()
+        cursor.execute(
+            "SELECT dni_usuario, nombre_usuario FROM registrados WHERE evento_id = %s AND asistido = 1 ORDER BY created_at",
+            (evento_id,)
+        )
+        registrados = cursor.fetchall()
+
+        if not registrados:
+            flash('El evento fue finalizado, pero no hay usuarios validados para recibir certificados.', 'warning')
+        else:
+            for dni_usuario, nombre_usuario in registrados:
+                try:
+                    cursor2 = db.connection.cursor()
+                    cursor2.execute("SELECT email FROM `user` WHERE dni = %s LIMIT 1", (dni_usuario,))
+                    usuario = cursor2.fetchone()
+                    email_destino = usuario[0] if usuario else None
+                    if not email_destino:
+                        continue
+
+                    nombre_partes = (nombre_usuario or '').split()
+                    nombre = nombre_partes[0] if nombre_partes else ''
+                    apellido = ' '.join(nombre_partes[1:]) if len(nombre_partes) > 1 else ''
+                    cert_path = generar_certificado(nombre, apellido, dni_usuario, evento['titulo'])
+
+                    msg = Message(subject=f'Certificado de asistencia - {evento["titulo"]}', recipients=[email_destino])
+                    msg.body = (
+                        f"Hola {nombre_usuario},\n\n"
+                        f"Adjuntamos tu certificado de asistencia al evento '{evento['titulo']}'.\n\n"
+                        "Saludos,\nEquipo de Gestión de Eventos"
+                    )
+                    with open(cert_path, 'rb') as file:
+                        msg.attach(os.path.basename(cert_path), 'image/png', file.read())
+                    mail.send(msg)
+                except Exception as ex:
+                    print(f"[ERROR] finalizando evento {evento_id}, usuario {dni_usuario}: {ex}")
+
+            flash('Evento finalizado correctamente. Los certificados fueron enviados solo a los usuarios validados.', 'success')
+
+        cursor.execute("UPDATE event SET finalizado = 1 WHERE id = %s", (evento_id,))
+        db.connection.commit()
+    except Exception as ex:
+        db.connection.rollback()
+        flash(f'No se pudo finalizar el evento: {ex}', 'error')
+
+    if es_admin:
+        return redirect(url_for('ver_eventos'))
+    return redirect(url_for('eventos_organizador'))
+
+
+@app.route('/evento/<int:evento_id>/validar-qr')
+@login_required
+def validar_qr_evento(evento_id):
+    """Muestra la vista para validar entrada de un evento mediante QR o DNI."""
+    evento = get_event_from_db(evento_id)
+    if evento is None:
+        return "Evento no encontrado", 404
+    if evento.get('finalizado'):
+        flash('Este evento ya finalizó y no se puede validar más.', 'error')
+        return redirect(url_for('eventos_organizador'))
+    return render_template('validar_qr.html', evento=evento, evento_id=evento_id)
+
+
+@app.route('/api/validar-qr-entrada', methods=['POST'])
+@login_required
+def validar_qr_entrada():
+    """Valida si un usuario está registrado en un evento usando QR o DNI.
+    Solo marca asistido y devuelve el email, sin generar certificado aún.
+    """
+    data = request.get_json(silent=True) or {}
+    evento_id = data.get('evento_id')
+    qr_data = data.get('qr_data')
+    dni = data.get('dni')
+
+    if not evento_id:
+        return jsonify({'success': False, 'message': 'No se indicó el evento.'}), 400
+
+    try:
+        cursor = db.connection.cursor()
+        if qr_data:
+            import re
+            match = re.search(r'\|DNI:(.+?)\|', str(qr_data))
+            dni = match.group(1).strip() if match else None
+
+        if not dni:
+            return jsonify({'success': False, 'message': 'No se pudo leer el DNI del QR o no se ingresó el DNI.'}), 400
+
+        cursor.execute("SELECT finalizado FROM event WHERE id = %s LIMIT 1", (evento_id,))
+        evento_row = cursor.fetchone()
+        if evento_row and bool(evento_row[0]):
+            return jsonify({'success': False, 'message': 'Este evento ya finalizó y no acepta más validaciones.'}), 403
+
+        cursor.execute(
+            "SELECT 1 FROM registrados WHERE evento_id = %s AND dni_usuario = %s LIMIT 1",
+            (evento_id, dni)
+        )
+        existe = cursor.fetchone() is not None
+
+        if existe:
+            cursor.execute(
+                "UPDATE registrados SET asistido = 1 WHERE evento_id = %s AND dni_usuario = %s",
+                (evento_id, dni)
+            )
+            db.connection.commit()
+
+            # Obtener email actual del usuario
+            try:
+                cursor.execute("SELECT email FROM `user` WHERE dni = %s LIMIT 1", (dni,))
+                user_row = cursor.fetchone()
+                user_email = user_row[0] if user_row else None
+            except Exception:
+                user_email = None
+
+            print(f"[INFO] Usuario {dni} marcado como asistido en evento {evento_id}. Email: {user_email}")
+            
+            return jsonify({
+                'success': True,
+                'message': f'✓ Usuario validado. Email: {user_email or "(no registrado)"}',
+                'current_email': user_email,
+                'evento_id': evento_id,
+                'dni': dni
+            })
+
+        return jsonify({'success': False, 'message': 'No se encontró un registro para este usuario en el evento.'})
+    except Exception as ex:
+        print(f"[ERROR] validar_qr_entrada: {ex}")
+        return jsonify({'success': False, 'message': 'Ocurrió un error al validar el QR.'}), 500
+
+
+@app.route('/api/enviar-certificados-lote', methods=['POST'])
+@login_required
+def enviar_certificados_lote():
+    """Envía certificados a múltiples usuarios de una vez."""
+    data = request.get_json(silent=True) or {}
+    evento_id = data.get('evento_id')
+    usuarios = data.get('usuarios', [])  # Lista de {dni, email}
+
+    if not evento_id or not usuarios:
+        return jsonify({'success': False, 'message': 'Faltan datos requeridos.'}), 400
+
+    results = []
+    cursor = db.connection.cursor()
+
+    try:
+        # Obtener título del evento
+        cursor.execute("SELECT titulo FROM event WHERE id = %s LIMIT 1", (evento_id,))
+        evt_row = cursor.fetchone()
+        evento_titulo = evt_row[0] if evt_row else f'Evento {evento_id}'
+    except Exception:
+        evento_titulo = f'Evento {evento_id}'
+
+    for user_data in usuarios:
+        dni = user_data.get('dni')
+        email_destino = user_data.get('email')
+
+        if not dni or not email_destino:
+            results.append({'dni': dni, 'success': False, 'message': 'Datos incompletos'})
+            continue
+
+        try:
+            cursor.execute(
+                "SELECT nombre_usuario FROM registrados WHERE evento_id = %s AND dni_usuario = %s AND asistido = 1 LIMIT 1",
+                (evento_id, dni)
+            )
+            nombre_row = cursor.fetchone()
+            if not nombre_row:
+                results.append({'dni': dni, 'success': False, 'message': 'Usuario no validado'})
+                continue
+            nombre_usuario = nombre_row[0] if nombre_row else ''
+
+            # Separar nombre y apellido
+            nombre_partes = nombre_usuario.split()
+            nombre = nombre_partes[0] if len(nombre_partes) > 0 else ''
+            apellido = ' '.join(nombre_partes[1:]) if len(nombre_partes) > 1 else ''
+
+            # Generar certificado
+            salida_cert = generar_certificado(nombre, apellido, dni, evento_titulo)
+
+            # Enviar por email
+            try:
+                subj = f"Certificado de asistencia - {evento_titulo}"
+                body = f"Hola {nombre_usuario},\n\nAdjuntamos tu certificado de asistencia al evento '{evento_titulo}'.\n\nSaludos,\nEquipo de Gestión de Eventos"
+                msg = Message(subject=subj, recipients=[email_destino])
+                msg.body = body
+                with open(salida_cert, 'rb') as fp:
+                    cert_data = fp.read()
+                    msg.attach(os.path.basename(salida_cert), 'image/png', cert_data)
+                
+                print(f"[INFO] Enviando certificado a {email_destino} (DNI: {dni})")
+                mail.send(msg)
+                print(f"[INFO] Email enviado a {email_destino}")
+                results.append({'dni': dni, 'success': True, 'message': f'Enviado a {email_destino}'})
+            except Exception as mail_ex:
+                print(f"[ERROR] No se pudo enviar email a {email_destino}: {mail_ex}")
+                results.append({'dni': dni, 'success': False, 'message': f'Error: {str(mail_ex)[:50]}'})
+        except Exception as ex:
+            print(f"[ERROR] Error procesando DNI {dni}: {ex}")
+            results.append({'dni': dni, 'success': False, 'message': str(ex)[:50]})
+
+    success_count = sum(1 for r in results if r['success'])
+    return jsonify({
+        'success': True,
+        'message': f'Certificados enviados: {success_count}/{len(usuarios)}',
+        'results': results
+    })
+
+
 @app.route('/mis-eventos/cancelar/<int:registro_id>', methods=['POST'])
 @login_required
 def cancelar_asistencia(registro_id):
@@ -611,6 +1137,20 @@ def cancelar_asistencia(registro_id):
 
     try:
         cursor = db.connection.cursor()
+        cursor.execute(
+            "SELECT e.finalizado, r.evento_id FROM registrados r JOIN event e ON e.id = r.evento_id WHERE r.id = %s AND r.dni_usuario = %s LIMIT 1",
+            (registro_id, dni)
+        )
+        registro = cursor.fetchone()
+        if not registro:
+            flash('No se encontró tu registro para cancelar.', 'error')
+            return redirect(url_for('mis_eventos'))
+
+        finalizado, evento_id = bool(registro[0]), registro[1]
+        if finalizado:
+            flash('Este evento ya finalizó y no se puede cancelar la asistencia.', 'error')
+            return redirect(url_for('mis_eventos'))
+
         cursor.execute(
             "DELETE FROM registrados WHERE id = %s AND dni_usuario = %s",
             (registro_id, dni)
@@ -638,19 +1178,26 @@ def mostrar_qr(registro_id):
         origin = request.args.get('origin', None)
         print(f"[DEBUG] mostrar_qr - solicitado registro_id={registro_id} por user id={getattr(current_user,'id',None)} origin={origin}")
         cursor = db.connection.cursor()
-        cursor.execute("SELECT qr_code, dni_usuario FROM registrados WHERE id = %s LIMIT 1", (registro_id,))
+        cursor.execute(
+            "SELECT r.qr_code, r.dni_usuario, e.finalizado, r.evento_id FROM registrados r JOIN event e ON e.id = r.evento_id WHERE r.id = %s LIMIT 1",
+            (registro_id,)
+        )
         r = cursor.fetchone()
         if not r:
             print(f"[ERROR] mostrar_qr - registro {registro_id} no encontrado en DB")
             return "Registro no encontrado", 404
-        qr_path, dni = r[0], r[1]
-        print(f"[DEBUG] mostrar_qr - qr_path={qr_path} registro_dni={dni}")
+        qr_path, dni, evento_finalizado, evento_id = r[0], r[1], bool(r[2]), r[3]
+        print(f"[DEBUG] mostrar_qr - qr_path={qr_path} registro_dni={dni} evento_finalizado={evento_finalizado}")
 
         current_dni, _ = get_current_user_dni_username()
         
         if getattr(current_user, 'email', '') != 'admin' and str(dni) != str(current_dni):
             print(f"[ERROR] mostrar_qr - intento acceso no autorizado registro {registro_id} por user dni={current_dni}")
             return redirect(url_for('login'))
+
+        if evento_finalizado:
+            flash('Este evento ya finalizó, por lo que no se puede consultar ni validar el QR.', 'warning')
+            return redirect(url_for('mis_eventos'))
 
         if not qr_path:
             flash('No se encontró un código QR para este registro.', 'error')
@@ -719,123 +1266,82 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
-# ============ RUTAS ADMIN - GESTIÓN DE ORGANIZADORES ============
+@app.route('/soporte')
+def soporte():
+    """Página de soporte y reporte de problemas"""
+    return render_template('soporte.html')
 
-@app.route('/admin/organizadores', methods=['GET', 'POST'])
+@app.route('/enviar-ticket', methods=['POST'])
+def enviar_ticket():
+    """Procesa el envío de tickets de soporte"""
+    nombre_usuario = request.form.get('nombre')
+    email_usuario = request.form.get('email')
+    categoria = request.form.get('categoria')
+    mensaje = request.form.get('descripcion')
+
+    msg = MIMEMultipart()
+    msg['From'] = GMAIL_USER
+    msg['To'] = SUPPORT_EMAIL
+    msg['Reply-To'] = email_usuario
+    msg['Subject'] = f"TICKET [{categoria}] - De: {nombre_usuario}"
+
+    cuerpo_correo = f"""
+NUEVO TICKET DE SOPORTE
+
+Nombre: {nombre_usuario}
+Correo: {email_usuario}
+Categoría: {categoria}
+
+Descripción del problema:
+
+{mensaje}
+
+----------------------------------------
+Sistema de Gestión de Eventos
+UTN Facultad Regional San Francisco
+"""
+
+    msg.attach(MIMEText(cuerpo_correo, 'plain'))
+
+    try:
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(GMAIL_USER, GMAIL_PASS)
+        server.send_message(msg)
+        server.quit()
+        
+        flash('¡Ticket enviado correctamente! El equipo de soporte fue notificado.', 'success')
+        return redirect(url_for('soporte'))
+
+    except Exception as e:
+        print("Error:", e)
+        flash(f'Error al enviar el ticket: {str(e)}', 'error')
+        return redirect(url_for('soporte'))
+
+
+@app.route('/generar-certificado', methods=['GET', 'POST'])
 @login_required
-def gestionar_organizadores():
-    """Panel de admin para gestionar organizadores (convertir usuarios en organizadores)"""
-    if not current_user.is_authenticated or not is_admin(current_user):
-        flash('No tienes permiso para acceder a esta función.', 'error')
-        return redirect(url_for('login'))
-    
+def generar_certificado_view():
+    """Formulario simple para generar un certificado y devolverlo como descarga."""
     if request.method == 'POST':
-        user_id = request.form.get('user_id')
-        new_rol = request.form.get('rol')
-        
-        if user_id and new_rol in ['estudiante', 'organizador', 'admin']:
-            try:
-                ModelUser.update_rol(db, user_id, new_rol)
-                rol_display = 'Estudiante' if new_rol == 'estudiante' else ('Organizador' if new_rol == 'organizador' else 'Administrador')
-                flash(f'Rol actualizado correctamente a "{rol_display}".', 'success')
-            except Exception as ex:
-                print(f"[ERROR] gestionar_organizadores POST: {ex}")
-                flash(f'Error al actualizar el rol: {str(ex)}', 'error')
-        else:
-            flash('Datos inválidos.', 'error')
-        
-        return redirect(url_for('gestionar_organizadores'))
-    
-    try:
-        usuarios = ModelUser.get_all_users(db)
-        print(f"[DEBUG] gestionar_organizadores - usuarios encontrados: {len(usuarios)}")
-    except Exception as ex:
-        print(f"[ERROR] gestionar_organizadores GET: {ex}")
-        usuarios = []
-        flash(f'Error al cargar usuarios: {str(ex)}', 'error')
-    
-    return render_template('admin_organizadores.html', usuarios=usuarios)
+        nombre = request.form.get('nombre', '').strip()
+        apellido = request.form.get('apellido', '').strip()
+        dni = request.form.get('dni', '').strip()
+        evento = request.form.get('evento', '').strip()
 
-# ============ RUTAS ORGANIZADOR - VALIDACIÓN QR ============
+        if not nombre or not apellido or not dni or not evento:
+            flash('Completa todos los campos.', 'error')
+            return render_template('generar_certificado.html', nombre=nombre, apellido=apellido, dni=dni, evento=evento)
 
-@app.route('/evento/<int:evento_id>/validar-qr', methods=['GET', 'POST'])
-@login_required
-def validar_qr_evento(evento_id):
-    """Página de validación de QR para organizadores (solo GET para acceso)"""
-    # Verificar que sea organizador
-    if not (current_user.is_authenticated and getattr(current_user, 'rol', 'estudiante') in ['organizador', 'admin']):
-        flash('No tienes permiso para acceder a esta función.', 'error')
-        return redirect(url_for('ver_eventos'))
-    
-    evento = get_event_from_db(evento_id)
-    if evento is None:
-        return "Evento no encontrado", 404
-    
-    return render_template('validar_qr.html', evento=evento, evento_id=evento_id)
+        try:
+            salida = generar_certificado(nombre, apellido, dni, evento)
+            return send_file(salida, as_attachment=True)
+        except Exception as ex:
+            print(f"[ERROR] generar_certificado_view: {ex}")
+            flash('Ocurrió un error generando el certificado. Revisa que exista la plantilla y las fuentes.', 'error')
+            return render_template('generar_certificado.html', nombre=nombre, apellido=apellido, dni=dni, evento=evento)
 
-@app.route('/api/validar-qr-entrada', methods=['POST'])
-@login_required
-def api_validar_qr_entrada():
-    """API para validar entrada por DNI o QR"""
-    try:
-        # Verificar que sea organizador
-        if not (current_user.is_authenticated and getattr(current_user, 'rol', 'estudiante') in ['organizador', 'admin']):
-            return jsonify({'success': False, 'message': 'No autorizado'}), 200
-        
-        data = request.get_json()
-        if not data:
-            return jsonify({'success': False, 'message': 'Datos inválidos'}), 200
-        
-        evento_id = data.get('evento_id')
-        dni = data.get('dni', '').strip()
-        qr_data = data.get('qr_data', '').strip()
-        
-        if not evento_id:
-            return jsonify({'success': False, 'message': 'Evento no especificado'}), 200
-        
-        # Si se envía QR, extraer el DNI del QR
-        if qr_data:
-            # Formato esperado: "Evento:evento_id|DNI:dni_usuario|Nombre:nombre_usuario|Registro:registro_id"
-            qr_parts = qr_data.split('|')
-            qr_dict = {}
-            for part in qr_parts:
-                if ':' in part:
-                    key, value = part.split(':', 1)
-                    qr_dict[key.strip()] = value.strip()
-            
-            dni = qr_dict.get('DNI', '').strip()
-            qr_evento_id = qr_dict.get('Evento', '').strip()
-            
-            if str(qr_evento_id) != str(evento_id):
-                return jsonify({'success': False, 'message': 'El QR no corresponde a este evento'}), 200
-        
-        if not dni:
-            return jsonify({'success': False, 'message': 'DNI inválido o no proporcionado'}), 200
-        
-        # Buscar si el usuario está registrado en el evento
-        cursor = db.connection.cursor()
-        cursor.execute(
-            "SELECT id, nombre_usuario, qr_code FROM registrados WHERE evento_id = %s AND dni_usuario = %s LIMIT 1",
-            (evento_id, dni)
-        )
-        registro = cursor.fetchone()
-        
-        if registro:
-            return jsonify({
-                'success': True,
-                'message': f'✓ Entrada permitida - {registro[1]}',
-                'nombre_usuario': registro[1],
-                'dni': dni
-            }), 200
-        else:
-            return jsonify({
-                'success': False,
-                'message': f'✗ Usuario no registrado en este evento (DNI: {dni})'
-            }), 200
-    
-    except Exception as ex:
-        print(f"[ERROR] api_validar_qr_entrada: {ex}")
-        return jsonify({'success': False, 'message': f'Error del servidor: {str(ex)}'}), 200
+    return render_template('generar_certificado.html')
 
 if __name__ == '__main__':
     app.run()

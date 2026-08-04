@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+
+{% block title %}Eventos del organizador{% endblock %}
+
+{% block body %}
+  <div class="container mt-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <div>
+        <h3>Eventos del organizador</h3>
+        <p class="text-muted">Acá podés ver los eventos que creaste y gestionar su contenido.</p>
+      </div>
+      <a class="btn btn-secondary" href="{{ url_for('home') }}">Ir al menú</a>
+    </div>
+
+    {% if eventos and eventos|length > 0 %}
+      <div class="list-group">
+        {% for evento in eventos %}
+          <div class="list-group-item d-flex justify-content-between align-items-start flex-wrap gap-2">
+            <div>
+              <h5 class="mb-1">{{ evento.titulo }}</h5>
+              <p class="mb-1 text-muted">{{ evento.fecha }} · {{ evento.lugar }}</p>
+              <p class="mb-1 text-muted">Capacidad máxima: {{ evento.capacidad_maxima }}</p>
+              {% if evento.finalizado %}
+                <span class="badge bg-success">Finalizado</span>
+              {% else %}
+                <span class="badge bg-primary">Abierto</span>
+              {% endif %}
+              {% if evento.descripcion %}
+                <div class="mt-2 text-muted" style="display:block; width:100%; max-width: 420px; word-break: break-word; line-height: 1.5;">
+                  {{ evento.descripcion }}
+                </div>
+              {% endif %}
+              <div class="mt-2">
+                <span class="badge bg-info text-dark">{{ evento.inscritos_count }} anotados</span>
+              </div>
+            </div>
+            <div class="d-flex flex-column gap-2 align-items-end">
+              <span class="badge bg-primary">Creado por vos</span>
+              {% if not evento.finalizado %}
+              <a class="btn btn-sm btn-outline-primary" href="{{ url_for('ver_usuarios_evento', evento_id=evento.id) }}">Ver usuarios</a>
+              <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('editar_evento', evento_id=evento.id) }}">Editar</a>
+              <a class="btn btn-sm btn-warning" href="{{ url_for('validar_qr_evento', evento_id=evento.id) }}">Validar QR</a>
+              <form method="post" action="{{ url_for('finalizar_evento', evento_id=evento.id) }}" style="display:inline-block; margin:0;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-sm btn-success" onclick="return confirm('¿Finalizar el evento y enviar certificados por Gmail?');">Finalizar</button>
+              </form>
+              <form method="post" action="{{ url_for('eliminar_evento', evento_id=evento.id) }}" style="display:inline-block; margin:0;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('¿Seguro que querés eliminar este evento?');">Eliminar</button>
+              </form>
+              {% else %}
+              <span class="badge bg-secondary">Evento cerrado</span>
+              {% endif %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="alert alert-info">
+        Todavía no creaste eventos para mostrar.
+      </div>
+    {% endif %}
+  </div>
+{% endblock %}

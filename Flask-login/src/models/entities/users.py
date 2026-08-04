@@ -9,7 +9,7 @@ class User(UserMixin):
         self.password = password
         self.telefono = telefono
         self.dni = dni
-        self.rol = rol
+        self.rol = (rol or 'estudiante').strip().lower()
     
     def is_admin(self):
         return self.rol == 'admin'

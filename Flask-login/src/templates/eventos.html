@@ -1,57 +1,80 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Eventos</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head>
-<body>
-    <div class="container">
-        <div class="encabezado">
+{% extends 'base.html' %}
+
+{% block title %}Eventos{% endblock %}
+
+{% block customCSS %}
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+{% endblock %}
+
+{% block body %}
+    {% set is_admin = (usuario == 'admin') or (current_user.email|default('') == 'admin') or (current_user.rol|default('') == 'admin') %}
+    {% set is_organizador = current_user.rol|default('') == 'organizador' %}
+
+    <div class="container mt-4">
+        <div class="encabezado d-flex justify-content-between align-items-center mb-3">
             <h2>Eventos</h2>
             <div>
                 <span class="usuario-info">Hola, {{ usuario }}</span>
-                <a href="{{ url_for('home') }}" class="btn" style="margin-left: 15px; font-size: 0.9rem;">Menu</a>
-                {% if usuario == 'admin' or current_user.email == 'admin' %}
-                <a href="{{ url_for('logout') }}" class="btn btn-secondary" style="margin-left: 10px; font-size: 0.9rem;">Cerrar sesión</a>
+                <a href="{{ url_for('home') }}" class="btn btn-sm btn-outline-primary" style="margin-left: 12px; font-size: 0.9rem;">Menu</a>
+                {% if is_admin %}
+                <a href="{{ url_for('logout') }}" class="btn btn-sm btn-secondary" style="margin-left: 10px; font-size: 0.9rem;">Cerrar sesión</a>
                 {% endif %}
             </div>
         </div>
-        
+
         <div class="grid-eventos">
             {% for evento in eventos %}
-                <div class="tarjeta-evento">
-                    <h4>{{ evento.titulo }}</h4>
-                    <p><strong>Fecha:</strong> {{ evento.fecha }}</p>
-                    <p style="color: #999; font-size: 13px;">{{ evento.lugar }}</p>
-                    <a href="{{ url_for('detalle_evento', evento_id=evento.id) }}" class="btn" style="display: block; text-align: center;">Ver detalle</a>
-                    
-                    {% if usuario == 'admin' or current_user.rol == 'admin' %}
-                    <div class="botones-admin">
-                        <a href="{{ url_for('ver_usuarios_evento', evento_id=evento.id) }}" class="btn-usuarios">Ver usuarios</a>
-                        <a href="{{ url_for('editar_evento', evento_id=evento.id) }}" class="btn-editar">Editar</a>
-                        <form method="post" action="{{ url_for('eliminar_evento', evento_id=evento.id) }}" style="flex: 1;" onsubmit="return confirm('¿Eliminar este evento?');">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="btn-eliminar">Eliminar</button>
-                        </form>
-                    </div>
-                    {% endif %}
+            <div class="tarjeta-evento">
+                <h4>{{ evento.titulo }}</h4>
+                <p><strong>Fecha:</strong> {{ evento.fecha }}</p>
+                <p style="color: #999; font-size: 13px;">{{ evento.lugar }}</p>
+                <p><strong>Cupo:</strong> {{ evento.capacidad_maxima }}</p>
+                {% if evento.finalizado %}
+                    <p><strong>Estado:</strong> <span style="color: #198754; font-weight: 600;">Finalizado</span></p>
+                {% else %}
+                    <p><strong>Estado:</strong> <span style="color: #0d6efd; font-weight: 600;">Abierto</span></p>
+                {% endif %}
+                <a href="{{ url_for('detalle_evento', evento_id=evento.id) }}" class="btn" style="display: block; text-align: center;">Ver detalle</a>
 
-                    {% if current_user.rol in ['organizador', 'admin'] %}
-                    <div class="botones-organizador" style="margin-top: 10px;">
-                        <a href="{{ url_for('validar_qr_evento', evento_id=evento.id) }}" class="btn" style="display: block; text-align: center; background-color: #28a745;">Validar QR 🔓</a>
-                    </div>
+                {% if is_admin %}
+                <div class="botones-admin">
+                    {% if not evento.finalizado %}
+                    <a href="{{ url_for('ver_usuarios_evento', evento_id=evento.id) }}" class="btn-usuarios">Ver usuarios</a>
+                    <a href="{{ url_for('editar_evento', evento_id=evento.id) }}" class="btn-editar">Editar</a>
+                    <form method="post" action="{{ url_for('finalizar_evento', evento_id=evento.id) }}" style="flex: 1;" onsubmit="return confirm('¿Finalizar el evento y enviar certificados por Gmail?');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn-eliminar" style="background: #198754; color: white;">Finalizar</button>
+                    </form>
+                    {% else %}
+                    <span class="badge" style="background: #6c757d; color: white; display:block; margin-bottom:8px;">Evento cerrado</span>
+                    {% endif %}
+                    {% if not evento.finalizado %}
+                    <form method="post" action="{{ url_for('eliminar_evento', evento_id=evento.id) }}" style="flex: 1;" onsubmit="return confirm('¿Eliminar este evento?');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn-eliminar">Eliminar</button>
+                    </form>
                     {% endif %}
                 </div>
+                {% endif %}
+
+                {% if is_organizador %}
+                <div class="botones-organizador" style="margin-top: 10px;">
+                    {% if not evento.finalizado %}
+                    <a href="{{ url_for('ver_usuarios_evento', evento_id=evento.id) }}" class="btn" style="display: block; text-align: center; background-color: #04047f; margin-bottom: 8px;">Ver anotados</a>
+                    <a href="{{ url_for('validar_qr_evento', evento_id=evento.id) }}" class="btn" style="display: block; text-align: center; background-color: #04047f;">Validar QR 🔓</a>
+                    {% else %}
+                    <span class="badge" style="background: #6c757d; color: white; display:block;">Evento cerrado</span>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
             {% endfor %}
         </div>
 
-        <div class="enlaces" style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #f0f0f0;">
-            {% if usuario == 'admin' or current_user.rol == 'admin' %}
-                <a href="/admin" style="margin-right: 20px;">+ Agregar evento</a>
+        <div class="enlaces mt-4 pt-3 border-top">
+            {% if is_admin %}
+            <a href="/admin" class="btn btn-sm btn-primary">+ Agregar evento</a>
             {% endif %}
         </div>
     </div>
-</body>
-</html>
+{% endblock %}

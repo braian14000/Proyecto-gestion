@@ -17,12 +17,11 @@
     {% endwith %}
 
     <div class="form-floating mb-2">
-      <input type="text" class="form-control" id="identifier" name="identifier" placeholder="Correo o DNI" required>
-      <label for="identifier">Correo o DNI asociado</label>
+      <input type="text" class="form-control" id="dni" name="dni" placeholder="DNI" required>
+      <label for="dni">DNI asociado</label>
     </div>
 
     <button class="w-100 btn btn-lg btn-primary mb-2" type="submit">Enviar código</button>
-    <a href="{{ url_for('login') }}" class="d-block text-center mt-2">Volver al inicio</a>
   </form>
 </main>
 {% endblock %}

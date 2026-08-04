@@ -4,8 +4,31 @@
     <meta charset="UTF-8">
     <title>Login</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .btn-soporte {
+            position: fixed !important;
+            bottom: 20px !important;
+            right: 20px !important;
+            z-index: 2000 !important;
+            background-color: #04047f !important;
+            color: #ffffff !important;
+            border: none !important;
+            padding: 10px 16px !important;
+            border-radius: 6px !important;
+            font-weight: 600 !important;
+            transition: background-color 0.3s ease !important;
+            display: inline-block !important;
+            text-decoration: none !important;
+        }
+        .btn-soporte:hover {
+            background-color: #03035f !important;
+            color: #ffffff !important;
+            text-decoration: none !important;
+        }
+    </style>
 </head>
 <body>
+    <a href="{{ url_for('soporte') }}" class="btn-soporte" target="_blank" rel="noopener noreferrer">Soporte</a>
     <div class="container">
         <h2>Iniciar Sesión</h2>
         <form action="/login" method="post">

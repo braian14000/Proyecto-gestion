@@ -34,6 +34,10 @@
             <div class="form-group">
                 <input type="text" name="lugar" placeholder="Ubicación" value="{{ evento.lugar }}" required>
             </div>
+
+            <div class="form-group">
+                <input type="number" name="capacidad_maxima" min="1" value="{{ evento.capacidad_maxima }}" placeholder="Capacidad máxima" required>
+            </div>
             
             <div class="form-group">
                 <textarea name="descripcion" placeholder="Descripción" rows="5" required>{{ evento.descripcion }}</textarea>

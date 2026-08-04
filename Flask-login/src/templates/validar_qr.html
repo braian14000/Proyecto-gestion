@@ -4,7 +4,7 @@
 
 {% block customCSS %}
 <style>
-  .validation-container { max-width: 600px; margin: 2rem auto; }
+  .validation-container { max-width: 700px; margin: 2rem auto; }
   .validation-card { border: 2px solid #0d6efd; border-radius: 10px; }
   .video-container { 
     max-width: 100%; 
@@ -32,12 +32,47 @@
     border: 1px solid #f5c6cb;
     color: #721c24;
   }
+  .usuarios-lista {
+    margin: 1.5rem 0;
+    padding: 1rem;
+    background: #f9f9f9;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+  }
+  .usuario-item {
+    display: flex;
+    align-items: center;
+    padding: 0.8rem;
+    background: white;
+    margin: 0.5rem 0;
+    border-radius: 6px;
+    border-left: 4px solid #0d6efd;
+  }
+  .usuario-item input[type="checkbox"] {
+    margin-right: 1rem;
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+  }
+  .usuario-item .info {
+    flex: 1;
+  }
+  .usuario-item .dni { font-weight: bold; color: #333; }
+  .usuario-item .email { font-size: 0.9rem; color: #666; }
   .separator { text-align: center; margin: 1.5rem 0; }
   .separator::before { content: '— '; }
   .separator::after { content: ' —'; }
   .hidden { display: none; }
   .loading { text-align: center; }
   .spinner { margin: 0 auto; }
+  .btn-send-all { margin-top: 1rem; }
+  .count-info { font-size: 0.9rem; color: #666; margin: 0.5rem 0; }
+  @media (max-width: 768px) {
+    .validation-container { margin: 0.5rem; }
+    .btn-scan { padding: 0.8rem 1rem; font-size: 1rem; }
+    .usuario-item { flex-direction: column; align-items: flex-start; }
+    .usuario-item input[type="checkbox"] { margin-bottom: 0.5rem; }
+  }
 </style>
 {% endblock %}
 
@@ -65,7 +100,7 @@
         <h5>Escanear Código QR</h5>
         
         <div class="video-container" id="videoContainer">
-          <video id="video" playsinline></video>
+          <video id="video" autoplay muted playsinline></video>
         </div>
 
         <div class="d-grid gap-2">
@@ -110,13 +145,29 @@
         </button>
       </div>
 
+      <!-- Lista de usuarios validados -->
+      <div class="usuarios-lista hidden" id="usuariosLista">
+        <h6>Usuarios validados y seleccionados para certificado:</h6>
+        <p class="count-info"><strong id="countInfo">0</strong> usuario(s) seleccionado(s)</p>
+        <div id="usuariosContainer"></div>
+        <div class="d-grid gap-2">
+          <button type="button" class="btn btn-primary btn-send-all" onclick="sendSelectedCertificates()">
+            📧 Enviar Certificados Seleccionados
+          </button>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="clearAllUsuarios()">
+            Limpiar lista
+          </button>
+        </div>
+      </div>
+
       <!-- Información de ayuda -->
       <div class="alert alert-light mt-4 text-muted small">
         <strong> Ayuda:</strong>
         <ul class="mb-0 mt-2">
-          <li>Usa la cámara para escanear el código QR de la entrada del usuario</li>
-          <li>Si no tienes acceso a la cámara, ingresa el DNI manualmente</li>
-          <li>Se validará si el usuario está registrado en este evento</li>
+          <li>Usa la cámara del celular o del equipo para escanear el QR</li>
+          <li>O ingresa el DNI manualmente</li>
+          <li>Marca el checkbox ☑ si deseas enviar el certificado</li>
+          <li>Valida múltiples usuarios y luego envía todos de una vez</li>
         </ul>
       </div>
     </div>
@@ -138,6 +189,7 @@
   let canvasContext;
   let animationId;
   let isScannerActive = false;
+  let usuariosValidados = {}; // {dni: {email, send: bool}}
 
   function initQRScanner() {
     const videoContainer = document.getElementById('videoContainer');
@@ -149,20 +201,33 @@
     canvasElement = document.createElement('canvas');
     canvasContext = canvasElement.getContext('2d');
 
+    videoElement.setAttribute('playsinline', 'true');
+    videoElement.setAttribute('autoplay', 'true');
+    videoElement.setAttribute('muted', 'true');
+
     videoContainer.style.display = 'block';
     btnStartCamera.classList.add('hidden');
     btnStopCamera.classList.remove('hidden');
     scanLoading.classList.remove('hidden');
     isScannerActive = true;
 
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+    navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: { ideal: 'environment' },
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
+      }
+    })
       .then(stream => {
         videoElement.srcObject = stream;
-        videoElement.play();
+        return videoElement.play();
+      })
+      .then(() => {
         scanQRCode();
       })
       .catch(err => {
-        showResult(false, 'Error al acceder a la cámara: ' + err.message);
+        showResult(false, 'No se pudo acceder a la cámara. Asegúrate de aceptar el permiso.');
+        console.error(err);
         stopQRScanner();
       });
   }
@@ -213,7 +278,6 @@
 
   function validateQRCode(qrData) {
     stopQRScanner();
-    
     const eventoId = {{ evento_id }};
     
     fetch('/api/validar-qr-entrada', {
@@ -227,11 +291,10 @@
         qr_data: qrData
       })
     })
-    .then(response => {
-      return response.json();
-    })
+    .then(response => response.json())
     .then(data => {
       if (data.success) {
+        addUsuarioToList(data.dni, data.current_email);
         showResult(true, data.message);
       } else {
         showResult(false, data.message);
@@ -246,13 +309,12 @@
   function validateByDni() {
     const dniInput = document.getElementById('dniInput');
     const dni = dniInput.value.trim();
+    const eventoId = {{ evento_id }};
 
     if (!dni) {
       showResult(false, 'Por favor, ingresa un DNI');
       return;
     }
-
-    const eventoId = {{ evento_id }};
 
     fetch('/api/validar-qr-entrada', {
       method: 'POST',
@@ -265,11 +327,10 @@
         dni: dni
       })
     })
-    .then(response => {
-      return response.json();
-    })
+    .then(response => response.json())
     .then(data => {
       if (data.success) {
+        addUsuarioToList(data.dni, data.current_email);
         showResult(true, data.message);
         dniInput.value = '';
       } else {
@@ -282,23 +343,124 @@
     });
   }
 
+  function addUsuarioToList(dni, email) {
+    usuariosValidados[dni] = { email: email || '', send: true };
+    updateUsuariosList();
+  }
+
+  function updateUsuariosList() {
+    const list = Object.keys(usuariosValidados).length;
+    if (list === 0) {
+      document.getElementById('usuariosLista').classList.add('hidden');
+      return;
+    }
+
+    document.getElementById('usuariosLista').classList.remove('hidden');
+
+    const container = document.getElementById('usuariosContainer');
+    container.innerHTML = '';
+
+    for (let dni in usuariosValidados) {
+      const user = usuariosValidados[dni];
+      const html = `
+        <div class="usuario-item">
+          <input 
+            type="checkbox" 
+            id="cb_${dni}" 
+            ${user.send ? 'checked' : ''} 
+            onchange="toggleUsuario('${dni}', this.checked)"
+          >
+          <div class="info">
+            <div class="dni">DNI: ${dni}</div>
+            <div class="email">📧 ${user.email || '(sin email registrado)'}</div>
+          </div>
+        </div>
+      `;
+      container.innerHTML += html;
+    }
+
+    updateCount();
+  }
+
+  function toggleUsuario(dni, checked) {
+    usuariosValidados[dni].send = checked;
+    updateCount();
+  }
+
+  function updateCount() {
+    const count = Object.values(usuariosValidados).filter(u => u.send).length;
+    document.getElementById('countInfo').textContent = count;
+  }
+
+  function clearAllUsuarios() {
+    if (confirm('¿Limpiar la lista de usuarios validados?')) {
+      usuariosValidados = {};
+      updateUsuariosList();
+    }
+  }
+
+  function sendSelectedCertificates() {
+    const selectedUsers = Object.entries(usuariosValidados)
+      .filter(([dni, user]) => user.send && user.email)
+      .map(([dni, user]) => ({ dni, email: user.email }));
+
+    if (selectedUsers.length === 0) {
+      alert('Selecciona al menos un usuario con email registrado para enviar certificados');
+      return;
+    }
+
+    const eventoId = {{ evento_id }};
+    const btn = event.target;
+    btn.disabled = true;
+    btn.textContent = '📧 Enviando...';
+
+    fetch('/api/enviar-certificados-lote', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrfToken,
+      },
+      body: JSON.stringify({
+        evento_id: eventoId,
+        usuarios: selectedUsers
+      })
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        let msg = `✓ ${data.message}\n\n`;
+        data.results.forEach(r => {
+          if (r.success) {
+            msg += `✓ DNI ${r.dni}: ${r.message}\n`;
+          } else {
+            msg += `✗ DNI ${r.dni}: ${r.message}\n`;
+          }
+        });
+        showResult(true, msg.replace(/\n/g, '<br>'));
+      } else {
+        showResult(false, 'Error: ' + data.message);
+      }
+      btn.disabled = false;
+      btn.textContent = '📧 Enviar Certificados Seleccionados';
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      showResult(false, 'Error al enviar: ' + error.message);
+      btn.disabled = false;
+      btn.textContent = '📧 Enviar Certificados Seleccionados';
+    });
+  }
+
   function showResult(success, message) {
     const resultDiv = document.getElementById('resultMessage');
     resultDiv.className = 'result-message ' + (success ? 'result-success' : 'result-error');
     resultDiv.innerHTML = message;
     resultDiv.style.display = 'block';
 
-    // Auto-ocultar después de 5 segundos
+    // Auto-ocultar después de 6 segundos
     setTimeout(() => {
       resultDiv.style.display = 'none';
-    }, 5000);
+    }, 6000);
   }
-
-  // Permitir Enter en el input de DNI
-  document.getElementById('dniInput').addEventListener('keypress', function(e) {
-    if (e.key === 'Enter') {
-      validateByDni();
-    }
-  });
 </script>
 {% endblock %}
