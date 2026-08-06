@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editar ubicación</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h2>Editar ubicación del evento</h2>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-messages">
+            {% for category, message in messages %}
+                <div class="flash {{ category }}">{{ message }}</div>
+            {% endfor %}
+            </div>
+        {% endif %}
+        {% endwith %}
+
+        <form method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group">
+                <label for="lugar">Nueva ubicación</label>
+                <input type="text" id="lugar" name="lugar" value="{{ evento.lugar }}" placeholder="Ej: Aula 102" required>
+            </div>
+            <button type="submit">Guardar ubicación</button>
+        </form>
+
+        <div class="enlaces">
+            <a href="{{ url_for('detalle_evento', evento_id=evento.id) }}">← Volver al evento</a>
+        </div>
+    </div>
+</body>
+</html>

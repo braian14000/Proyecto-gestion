@@ -249,6 +249,65 @@ def get_user_registrations(db, dni_usuario):
         print(f"[ERROR] get_user_registrations: {ex}")
         return []
 
+
+def delete_finished_events_and_qr():
+    """Elimina eventos ya finalizados, sus registros y sus QR asociados."""
+    try:
+        cursor = db.connection.cursor()
+        cursor.execute(
+            """
+            SELECT id
+            FROM event
+            WHERE finalizado = 1 OR fecha < CURDATE()
+            ORDER BY id
+            """
+        )
+        events = cursor.fetchall()
+
+        if not events:
+            return {'deleted_events': 0, 'deleted_registrations': 0, 'deleted_qr_files': 0}
+
+        event_ids = [row[0] for row in events]
+        qr_paths_to_remove = []
+        for event_id in event_ids:
+            cursor2 = db.connection.cursor()
+            cursor2.execute("SELECT qr_code FROM registrados WHERE evento_id = %s", (event_id,))
+            for (qr_code,) in cursor2.fetchall():
+                if qr_code:
+                    qr_paths_to_remove.append(qr_code)
+
+        seen_qr_paths = []
+        for qr_path in qr_paths_to_remove:
+            if qr_path in seen_qr_paths:
+                continue
+            seen_qr_paths.append(qr_path)
+            try:
+                normalized_path = qr_path.replace('/static/qr/', '').replace('static/qr/', '')
+                filename = os.path.basename(normalized_path)
+                if not filename:
+                    continue
+                full_path = os.path.join(app.static_folder, 'qr', filename)
+                if os.path.exists(full_path):
+                    os.remove(full_path)
+            except Exception as ex:
+                print(f"[WARN] No se pudo eliminar el QR {qr_path}: {ex}")
+
+        placeholders = ', '.join(['%s'] * len(event_ids))
+        cursor.execute(f"DELETE FROM registrados WHERE evento_id IN ({placeholders})", tuple(event_ids))
+        cursor.execute(f"DELETE FROM event WHERE id IN ({placeholders})", tuple(event_ids))
+        db.connection.commit()
+
+        return {
+            'deleted_events': len(event_ids),
+            'deleted_registrations': cursor.rowcount if hasattr(cursor, 'rowcount') else len(event_ids),
+            'deleted_qr_files': len(seen_qr_paths)
+        }
+    except Exception as ex:
+        db.connection.rollback()
+        print(f"[ERROR] delete_finished_events_and_qr: {ex}")
+        raise
+
+
 def generate_qr_code(evento_id, dni_usuario, nombre_usuario, registro_id):
     """Genera un código QR para el registro de un usuario en un evento"""
     try:
@@ -629,6 +688,23 @@ def gestionar_organizadores():
     usuarios = ModelUser.get_all_users(db)
     return render_template('admin_organizadores.html', usuarios=usuarios)
 
+@app.route('/admin/borrar-historial', methods=['POST'])
+@login_required
+def borrar_historial_admin():
+    if not current_user.is_authenticated or getattr(current_user, 'rol', '') != 'admin':
+        return redirect(url_for('login'))
+
+    try:
+        result = delete_finished_events_and_qr()
+        flash(
+            f"Historial limpiado. Se eliminaron {result['deleted_events']} eventos, {result['deleted_registrations']} inscripciones y {result['deleted_qr_files']} QR.",
+            'success'
+        )
+    except Exception as ex:
+        flash(f'No se pudo borrar el historial: {ex}', 'error')
+
+    return redirect(url_for('admin_dashboard'))
+
 @app.route('/evento/<int:evento_id>/usuarios')
 @login_required
 def ver_usuarios_evento(evento_id):
@@ -670,6 +746,46 @@ def eliminar_usuario_registrado(evento_id, registro_id):
         flash("Ocurrió un error al eliminar al usuario.", "error")
 
     return redirect(url_for('ver_usuarios_evento', evento_id=evento_id))
+
+@app.route('/evento/<int:evento_id>/editar-ubicacion', methods=['GET', 'POST'])
+@login_required
+def editar_ubicacion_evento(evento_id):
+    if not current_user.is_authenticated:
+        return redirect(url_for('login'))
+
+    evento = get_event_from_db(evento_id)
+    if evento is None:
+        return "Evento no encontrado", 404
+
+    es_admin = getattr(current_user, 'rol', '') == 'admin' or getattr(current_user, 'email', '') == 'admin'
+    es_organizador = getattr(current_user, 'rol', '') == 'organizador'
+    es_propietario = getattr(evento, 'get', lambda *args, **kwargs: None)('created_by') in (None, getattr(current_user, 'id', None))
+
+    if not es_admin and not (es_organizador and es_propietario):
+        flash('No tenés permiso para cambiar la ubicación de este evento.', 'error')
+        return redirect(url_for('detalle_evento', evento_id=evento_id))
+
+    if evento.get('finalizado'):
+        flash('Este evento ya finalizó y no se puede modificar.', 'error')
+        return redirect(url_for('detalle_evento', evento_id=evento_id))
+
+    if request.method == 'POST':
+        nuevo_lugar = request.form.get('lugar', '').strip()
+        if not nuevo_lugar:
+            flash('La nueva ubicación es obligatoria.', 'error')
+            return render_template('editar_ubicacion.html', evento=evento)
+
+        try:
+            cursor = db.connection.cursor()
+            cursor.execute("UPDATE event SET lugar = %s WHERE id = %s", (nuevo_lugar, evento_id))
+            db.connection.commit()
+            flash('La ubicación del evento se actualizó correctamente.', 'success')
+            return redirect(url_for('detalle_evento', evento_id=evento_id))
+        except Exception as ex:
+            flash(f'No se pudo actualizar la ubicación: {ex}', 'error')
+            return render_template('editar_ubicacion.html', evento=evento)
+
+    return render_template('editar_ubicacion.html', evento=evento)
 
 @app.route('/evento/editar/<int:evento_id>', methods=['GET', 'POST'])
 @login_required

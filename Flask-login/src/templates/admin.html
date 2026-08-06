@@ -15,6 +15,8 @@
   .btn-admin-secondary:hover { background: #e9edf2; }
   .btn-admin-outline { background: #ffffff; color: #04047f; border: 1px solid #04047f; }
   .btn-admin-outline:hover { background: #f5f7f9; }
+  .btn-admin-danger { background: #d9534f; color: #ffffff; border: none; }
+  .btn-admin-danger:hover { background: #c9302c; }
   .btn-admin-logout { background: #d9534f; color: #ffffff; border: none; }
   .btn-admin-logout:hover { background: #c9302c; }
   .admin-panel-card, .form-card { border-radius: 24px; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.08); overflow: hidden; }
@@ -40,6 +42,10 @@
         <a href="{{ url_for('home') }}" class="btn btn-outline-secondary btn-pill shadow-sm">Volver al menú</a>
         {% if current_user.rol == 'admin' %}
           <a href="{{ url_for('gestionar_organizadores') }}" class="btn btn-admin-outline btn-pill shadow-sm">Administrar Usuarios</a>
+          <form method="post" action="{{ url_for('borrar_historial_admin') }}" class="mt-1">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-admin-danger btn-pill shadow-sm w-100">Borrar historial</button>
+          </form>
         {% endif %}
         <a href="{{ url_for('logout') }}" class="btn btn-admin-logout btn-pill shadow-sm">Cerrar sesión</a>
       </div>

@@ -47,6 +47,7 @@
                 <a class="btn btn-secondary" href="{{ back_url }}">Volver atrás</a>
             </div>
         {% else %}
+            {% set puede_editar_ubicacion = not evento.finalizado and cupos_disponibles <= 0 and current_user.rol == 'admin' %}
             {% if not evento.finalizado and not registrado and current_user.email != 'admin' and current_user.username != 'admin' %}
                 {% if cupos_disponibles > 0 %}
                     <form method="post" action="{{ url_for('registrar_evento', evento_id=evento.id) }}" onsubmit="return confirm('¿Estás seguro de que deseas anotarte a este evento?');">
@@ -58,6 +59,12 @@
                 {% endif %}
             {% elif registrado and not evento.finalizado %}
                 <div class="flash success" style="margin-top: 20px;">Ya estás anotado en este evento.</div>
+            {% endif %}
+
+            {% if puede_editar_ubicacion %}
+                <div style="margin-top: 20px;">
+                    <a class="btn btn-secondary" href="{{ url_for('editar_ubicacion_evento', evento_id=evento.id) }}">Editar ubicación</a>
+                </div>
             {% endif %}
 
             <div class="enlaces">
