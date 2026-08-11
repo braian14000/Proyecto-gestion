@@ -179,17 +179,48 @@
   </div>
 </div>
 
-
-<script src="https://nimiq.github.io/qr-scanner/qr-scanner.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.js"></script>
-
+<script src="https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner.umd.min.js"></script>
 <script>
+  if (typeof QrScanner !== 'undefined') {
+    QrScanner.WORKER_PATH = 'https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner-worker.min.js';
+  }
+
   let videoElement;
-  let canvasElement;
-  let canvasContext;
-  let animationId;
+  let qrScanner = null;
   let isScannerActive = false;
   let usuariosValidados = {}; // {dni: {email, send: bool}}
+
+  function loadQrScannerLibrary(callback) {
+    if (typeof QrScanner !== 'undefined') {
+      QrScanner.WORKER_PATH = 'https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner-worker.min.js';
+      callback();
+      return;
+    }
+
+    const existing = document.getElementById('qrScannerScript');
+    if (existing) {
+      existing.addEventListener('load', () => {
+        QrScanner.WORKER_PATH = 'https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner-worker.min.js';
+        callback();
+      });
+      existing.addEventListener('error', () => {
+        showResult(false, 'No se pudo cargar la librería de escaneo QR. Comprueba tu conexión e intenta de nuevo.');
+      });
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.id = 'qrScannerScript';
+    script.src = 'https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner.umd.min.js';
+    script.onload = () => {
+      QrScanner.WORKER_PATH = 'https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner-worker.min.js';
+      callback();
+    };
+    script.onerror = () => {
+      showResult(false, 'No se pudo cargar la librería de escaneo QR. Comprueba tu conexión e intenta de nuevo.');
+    };
+    document.body.appendChild(script);
+  }
 
   function initQRScanner() {
     const videoContainer = document.getElementById('videoContainer');
@@ -197,10 +228,18 @@
     const btnStopCamera = document.getElementById('btnStopCamera');
     const scanLoading = document.getElementById('scanLoading');
 
-    videoElement = document.getElementById('video');
-    canvasElement = document.createElement('canvas');
-    canvasContext = canvasElement.getContext('2d');
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      showResult(false, 'Tu navegador no admite acceso a la cámara. Usa un navegador moderno.');
+      return;
+    }
 
+    if (typeof QrScanner === 'undefined') {
+      loadQrScannerLibrary(initQRScanner);
+      return;
+    }
+
+    QrScanner.WORKER_PATH = 'https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner-worker.min.js';
+    videoElement = document.getElementById('video');
     videoElement.setAttribute('playsinline', 'true');
     videoElement.setAttribute('autoplay', 'true');
     videoElement.setAttribute('muted', 'true');
@@ -211,45 +250,38 @@
     scanLoading.classList.remove('hidden');
     isScannerActive = true;
 
-    navigator.mediaDevices.getUserMedia({
-      video: {
-        facingMode: { ideal: 'environment' },
-        width: { ideal: 1280 },
-        height: { ideal: 720 }
+    qrScanner = new QrScanner(
+      videoElement,
+      result => {
+        if (!isScannerActive) return;
+        validateQRCode(result.data || result);
+      },
+      {
+        onDecodeError: error => {
+          console.warn('Decode error', error);
+        },
+        highlightScanRegion: true,
+        highlightCodeOutline: true
       }
-    })
-      .then(stream => {
-        videoElement.srcObject = stream;
-        return videoElement.play();
-      })
-      .then(() => {
-        scanQRCode();
-      })
-      .catch(err => {
-        showResult(false, 'No se pudo acceder a la cámara. Asegúrate de aceptar el permiso.');
-        console.error(err);
-        stopQRScanner();
-      });
+    );
+
+    qrScanner.start().catch(err => {
+      handleCameraError(err);
+    });
   }
 
-  function scanQRCode() {
-    if (!isScannerActive) return;
+  function handleCameraError(err) {
+    console.error(err);
 
-    if (videoElement.readyState === videoElement.HAVE_ENOUGH_DATA) {
-      canvasElement.width = videoElement.videoWidth;
-      canvasElement.height = videoElement.videoHeight;
-      canvasContext.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
-
-      const imageData = canvasContext.getImageData(0, 0, canvasElement.width, canvasElement.height);
-      const code = jsQR(imageData.data, imageData.width, imageData.height);
-
-      if (code) {
-        validateQRCode(code.data);
-        return;
-      }
+    if (err && (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError' || err.message === 'PermissionDenied')) {
+      showResult(false, 'Acceso denegado a la cámara. Revisa los permisos del navegador y permite el uso de la cámara.');
+    } else if (err && (err.name === 'NotFoundError' || err.name === 'OverconstrainedError')) {
+      showResult(false, 'No se encontró una cámara disponible en este dispositivo.');
+    } else {
+      showResult(false, 'No se pudo acceder a la cámara. ' + (err && err.message ? err.message : 'Verifica permisos y recarga la página.'));
     }
 
-    animationId = requestAnimationFrame(scanQRCode);
+    stopQRScanner();
   }
 
   function stopQRScanner() {
@@ -260,12 +292,15 @@
 
     isScannerActive = false;
 
-    if (videoElement && videoElement.srcObject) {
-      videoElement.srcObject.getTracks().forEach(track => track.stop());
+    if (qrScanner) {
+      qrScanner.stop();
+      qrScanner.destroy();
+      qrScanner = null;
     }
 
-    if (animationId) {
-      cancelAnimationFrame(animationId);
+    if (videoElement && videoElement.srcObject) {
+      videoElement.srcObject.getTracks().forEach(track => track.stop());
+      videoElement.srcObject = null;
     }
 
     videoContainer.style.display = 'none';
