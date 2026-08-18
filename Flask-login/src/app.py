@@ -367,14 +367,22 @@ def login():
     if current_user.is_authenticated:
         return redirect(url_for('home'))
 
+    remembered_email = request.cookies.get('remembered_user', '')
+
     if request.method == 'POST':
         email = request.form.get('email') or request.form.get('usuario')
         password = request.form.get('password') or request.form.get('contraseña')
+        remember_me = request.form.get('remember_me') == '1'
 
         if email == 'admin' and password == 'admin':
             admin_user = User(0, 'admin', 'admin', None, '')
             login_user(admin_user)
-            return redirect(url_for('home'))
+            response = redirect(url_for('home'))
+            if remember_me:
+                response.set_cookie('remembered_user', email, max_age=60*60*24*30, httponly=True, samesite='Lax')
+            else:
+                response.delete_cookie('remembered_user')
+            return response
 
         user = User(0, "", email, password)
         logged_user = ModelUser.login(db, user)
@@ -382,15 +390,20 @@ def login():
         if logged_user != None:
             if logged_user.password:
                 login_user(logged_user)
-                return redirect(url_for('home'))
+                response = redirect(url_for('home'))
+                if remember_me:
+                    response.set_cookie('remembered_user', email, max_age=60*60*24*30, httponly=True, samesite='Lax')
+                else:
+                    response.delete_cookie('remembered_user')
+                return response
             else:
                 flash("La contraseña ingresada es incorrecta.")
-                return render_template('auth/login.html')
+                return render_template('auth/login.html', remembered_email=remembered_email)
         else:
             flash("El correo ingresado no existe.")
-            return render_template('auth/login.html')
+            return render_template('auth/login.html', remembered_email=remembered_email)
     else:
-        return render_template('auth/login.html')
+        return render_template('auth/login.html', remembered_email=remembered_email)
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():

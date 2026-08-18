@@ -4,192 +4,142 @@
 
 {% block customCSS %}
 <style>
-  .menu-card { max-width: 420px; margin: 5rem auto; }
-  .btn-pill { border-radius: 999px; padding: 14px 26px; font-weight: 600; }
-  .admin-menu {
-    background: rgba(220, 53, 69, 0.08);
-    border-radius: 22px;
-    padding: 1.4rem 1.3rem;
-    margin-top: 1rem;
-    box-shadow: 0 18px 40px rgba(220, 53, 69, 0.08);
-  }
-  .admin-menu h6 {
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    font-size: 0.88rem;
-    margin-bottom: 0.9rem;
-  }
-  .admin-actions {
-    display: grid;
-    gap: 0.85rem;
-  }
-  .admin-actions .btn {
-    border-radius: 16px;
-    min-height: 52px;
-    padding: 0.95rem 1.2rem;
-    font-size: 0.96rem;
-    transition: transform 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease;
-  }
-  .admin-actions .btn:hover {
-    transform: translateY(-2px);
-  }
-  .btn-admin-panel {
-    background: #2c3e50;
-    color: #ffffff;
-    border: none;
-  }
-  .btn-admin-panel:hover {
-    background: #1f2936;
-  }
-  .btn-gestionar-organizadores {
-    background: #f4f6f8;
-    color: #2c3e50;
-    border: 1px solid #d7dde3;
-  }
-  .btn-gestionar-organizadores:hover {
-    background: #e9edf2;
-  }
-  .organizador-menu {
-    background: rgba(13, 110, 253, 0.08);
-    border-radius: 22px;
-    padding: 1.4rem 1.3rem;
-    margin-top: 1rem;
-    box-shadow: 0 18px 40px rgba(13, 110, 253, 0.09);
-  }
-  .organizador-menu h6 {
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    font-size: 0.88rem;
-    margin-bottom: 0.9rem;
-  }
-  .organizador-actions {
-    display: grid;
-    gap: 0.85rem;
-  }
-  .organizador-actions .btn {
-    border-radius: 16px;
-    min-height: 52px;
-    padding: 0.9rem 1.2rem;
-    font-size: 0.96rem;
-    transition: transform 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease;
-  }
-  .organizador-actions .btn:hover {
-    transform: translateY(-2px);
-  }
-  .btn-crear-evento {
-     background: #f4f6f8;
-    color: #2c3e50;
-    border: 1px solid #d7dde3;
-  }
-  .btn-crear-evento:hover {
-    background: #c7cdd4;
-  }
-  .btn-mis-eventos {
-    background: #f4f6f8;
-    color: #2c3e50;
-    border: 1px solid #d7dde3;
-  }
-  .btn-mis-eventos:hover {
-    background: #e9edf2;
-  }
-  .btn-validar-qr {
-    background: #ffffff;
-    color: #4b6a82;
-    border: 1px solid #ccd4dc;
-  }
-  .btn-validar-qr:hover {
-    background: #f5f7f9;
-  }
-</smodal-header {
-    background-color: #e8e8e8;
-    color: #2a2a2a;
-    border: none;
-    padding: 1.5rem 2rem;
-  }
-  .modal-header .modal-title {
-    font-size: 1.1rem;
-    font-weight: 700;
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
-    color: #2a2a2a;
-  }
-  .modal-header .btn-close {
-    filter: none;
-  }
-  .modal-content {
-    border: 1px solid #c0c0c0;
-    border-radius: 0;
-  }
-  .modal-body {
-    max-height: 65vh;
-    overflow-y: auto;
-    font-size: 0.95rem;
-    line-height: 1.7;
-    padding: 2rem;
-    background-color: #ffffff;
-  }
-  .modal-body h5 {
-    color: #2a2a2a;
-    font-weight: 600;
-    margin-top: 1.5rem;
-    margin-bottom: 0.8rem;
-    font-size: 1rem;
-    border: none;
-    padding: 0;
-    text-decoration: underline;
-    text-decoration-color: #999;
-    text-decoration-thickness: 1px;
-    text-underline-offset: 0.3rem;
-  }
-  .modal-body h5:first-child {
-    margin-top: 0;
-  }
-  .modal-body p {
-    color: #333;
-    text-align: justify;
-    margin-bottom: 0.8rem;
-  }
-  .modal-body ul {
-    color: #333;
-    margin-left: 1.5rem;
-    margin-bottom: 0.8rem;
-  }
-  .modal-body ul li {
-    margin-bottom: 0.6rem;
-    text-align: justify;
-  }
-  .modal-body strong {
-    color: #2a2a2a;
-    font-weight: 600;
-  }
-  .modal-footer {
-    border-top: 1px solid #d0d0d0;
-    padding: 1.5rem 2rem;
-    background-color: #f5f5f5;
-  }
-  .modal-footer .btn-secondary {
-    background-color: #6c757d;
-    border-color: #6c757d;
-    font-weight: 500;
-  }
-  .modal-footer .btn-secondary:hover {
-    background-color: #5a6268;
-    border-color: #5a6268;
-  }
-  .terminos-link {
-    cursor: pointer;
-    text-decoration: underline;
-    color: #6c757d;
-    font-size: 0.9rem;
-  }
-  .terminos-link:hover {
-    color: #495057;
-  }
-  .modal-header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border-bottom: none;
-  }
+.menu-card { max-width: 420px; margin: 5rem auto; }
+.btn-pill { border-radius: 999px; padding: 14px 26px; font-weight: 600; }
+.admin-menu {
+  background: rgba(220, 53, 69, 0.08);
+  border-radius: 22px;
+  padding: 1.4rem 1.3rem;
+  margin-top: 1rem;
+  box-shadow: 0 18px 40px rgba(220, 53, 69, 0.08);
+}
+.admin-menu h6 {
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 0.88rem;
+  margin-bottom: 0.9rem;
+}
+.admin-actions {
+  display: grid;
+  gap: 0.85rem;
+}
+.admin-actions .btn {
+  border-radius: 16px;
+  min-height: 52px;
+  padding: 0.95rem 1.2rem;
+  font-size: 0.96rem;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease;
+}
+.admin-actions .btn:hover {
+  transform: translateY(-2px);
+}
+.btn-admin-panel {
+  background: #2c3e50;
+  color: #ffffff;
+  border: none;
+}
+.btn-admin-panel:hover {
+  background: #1f2936;
+}
+.btn-gestionar-organizadores {
+  background: #f4f6f8;
+  color: #2c3e50;
+  border: 1px solid #d7dde3;
+}
+.btn-gestionar-organizadores:hover {
+  background: #e9edf2;
+}
+.organizador-menu {
+  background: rgba(13, 110, 253, 0.08);
+  border-radius: 22px;
+  padding: 1.4rem 1.3rem;
+  margin-top: 1rem;
+  box-shadow: 0 18px 40px rgba(13, 110, 253, 0.09);
+}
+.organizador-menu h6 {
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 0.88rem;
+  margin-bottom: 0.9rem;
+}
+.organizador-actions {
+  display: grid;
+  gap: 0.85rem;
+}
+.organizador-actions .btn {
+  border-radius: 16px;
+  min-height: 52px;
+  padding: 0.9rem 1.2rem;
+  font-size: 0.96rem;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease;
+}
+.organizador-actions .btn:hover {
+  transform: translateY(-2px);
+}
+.btn-crear-evento {
+  background: #f4f6f8;
+  color: #2c3e50;
+  border: 1px solid #d7dde3;
+}
+.btn-crear-evento:hover {
+  background: #c7cdd4;
+}
+.btn-mis-eventos {
+  background: #f4f6f8;
+  color: #2c3e50;
+  border: 1px solid #d7dde3;
+}
+.btn-mis-eventos:hover {
+  background: #e9edf2;
+}
+.btn-validar-qr {
+  background: #ffffff;
+  color: #4b6a82;
+  border: 1px solid #ccd4dc;
+}
+.btn-validar-qr:hover {
+  background: #f5f7f9;
+}
+.modal-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-bottom: none;
+}
+.modal-body {
+  max-height: 70vh;
+  overflow-y: auto;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+.modal-body h5 {
+  color: #2c3e50;
+  font-weight: 600;
+  margin-top: 1.2rem;
+  margin-bottom: 0.8rem;
+}
+.modal-body h5:first-child {
+  margin-top: 0;
+}
+.modal-body p {
+  color: #555;
+  text-align: justify;
+}
+.modal-body ul {
+  color: #555;
+  margin-left: 1.5rem;
+}
+.modal-body ul li {
+  margin-bottom: 0.5rem;
+}
+.terminos-link {
+  cursor: pointer;
+  text-decoration: underline;
+  color: #6c757d;
+  font-size: 0.9rem;
+}
+.terminos-link:hover {
+  color: #495057;
+}
 </style>
 {% endblock %}
 
@@ -204,11 +154,11 @@
       <p class="text-muted">
         <small>Rol: 
           {% if current_user.rol == 'admin' %}
-            <span class="badge bg-danger">Administrador</span>
+          <span class="badge bg-danger">Administrador</span>
           {% elif current_user.rol == 'organizador' %}
-            <span class="badge bg-primary">Organizador</span>
+          <span class="badge bg-primary">Organizador</span>
           {% else %}
-            <span class="badge bg-secondary">Estudiante</span>
+          <span class="badge bg-secondary">Estudiante</span>
           {% endif %}
         </small>
       </p>
@@ -255,8 +205,9 @@
 <!-- Modal de Términos y Condiciones -->
 <div class="modal fade" id="terminosModal" tabindex="-1" aria-labelledby="terminosModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-lg">
-    <div</h5>
-        <button type="button" class="btn-closnosModalLabel">Términos y Condiciones de Uso - Sistema de Eventos UTN</h5>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="terminosModalLabel">Términos y Condiciones de Uso - Sistema de Eventos UTN</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
       </div>
       <div class="modal-body">

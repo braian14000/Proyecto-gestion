@@ -85,17 +85,14 @@
     </div>
     
     <div class="card-body p-4">
-      <!-- Información del evento -->
       <div class="alert alert-info">
         <strong>Evento:</strong> {{ evento.titulo }}<br>
         <strong>Fecha:</strong> {{ evento.fecha }}<br>
         <strong>Lugar:</strong> {{ evento.lugar }}
       </div>
 
-      <!-- Mensajes de resultado -->
       <div class="result-message" id="resultMessage"></div>
 
-      <!-- Escaneo por QR -->
       <div class="qr-section">
         <h5>Escanear Código QR</h5>
         
@@ -122,10 +119,8 @@
         </div>
       </div>
 
-      <!-- Separador -->
       <div class="separator">o</div>
 
-      <!-- Validación por DNI -->
       <div class="dni-section">
         <h5>Validar por DNI</h5>
         
@@ -145,15 +140,11 @@
         </button>
       </div>
 
-      <!-- Lista de usuarios validados -->
       <div class="usuarios-lista hidden" id="usuariosLista">
         <h6>Usuarios validados y seleccionados para certificado:</h6>
         <p class="count-info"><strong id="countInfo">0</strong> usuario(s) seleccionado(s)</p>
         <div id="usuariosContainer"></div>
         <div class="d-grid gap-2">
-          <button type="button" class="btn btn-primary btn-send-all" onclick="sendSelectedCertificates()">
-            📧 Enviar Certificados Seleccionados
-          </button>
           <button type="button" class="btn btn-secondary btn-sm" onclick="clearAllUsuarios()">
             Limpiar lista
           </button>
