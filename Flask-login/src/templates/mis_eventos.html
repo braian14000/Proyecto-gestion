@@ -21,10 +21,13 @@
     {% if registros and registros|length > 0 %}
       <div class="list-group mt-3">
         {% for r in registros %}
-          <div class="list-group-item d-flex justify-content-between align-items-center flex-wrap">
-            <div class="mb-2">
+          <div class="list-group-item d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div class="mb-2 flex-grow-1">
               <h5 class="mb-1">{{ r.titulo }}</h5>
-              <small class="text-muted">{{ r.fecha }} - {{ r.lugar }}</small>
+              <small class="text-muted">{{ r.fecha }} · {{ r.hora }} · {{ r.lugar }}</small>
+              <div class="mt-2 countdown-box" data-event-start="{{ r.fecha }}T{{ r.hora }}">
+                <span class="countdown-text badge bg-light text-dark border">Calculando tiempo restante...</span>
+              </div>
               {% if r.asistido %}
                 <div class="mt-2"><span class="badge bg-primary">Asistió</span></div>
               {% elif r.qr_code %}
@@ -55,4 +58,51 @@
       <a class="btn btn-primary" href="{{ url_for('ver_eventos') }}">Ver eventos</a>
     {% endif %}
   </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const countdownBoxes = document.querySelectorAll('.countdown-box');
+
+      function formatCountdown(ms) {
+        const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+        const days = Math.floor(totalSeconds / 86400);
+        const hours = Math.floor((totalSeconds % 86400) / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+
+        const parts = [];
+        if (days > 0) parts.push(`${days}d`);
+        if (hours > 0 || days > 0) parts.push(`${hours}h`);
+        if (minutes > 0 || hours > 0 || days > 0) parts.push(`${minutes}m`);
+        parts.push(`${seconds}s`);
+
+        return parts.join(' ');
+      }
+
+      countdownBoxes.forEach(function (box) {
+        const target = new Date(box.dataset.eventStart);
+        const label = box.querySelector('.countdown-text');
+
+        if (!label || Number.isNaN(target.getTime())) {
+          if (label) label.textContent = 'Horario no disponible';
+          return;
+        }
+
+        function updateCountdown() {
+          const now = new Date();
+          const diff = target.getTime() - now.getTime();
+
+          if (diff <= 0) {
+            label.textContent = 'Evento en curso o ya finalizado';
+            return;
+          }
+
+          label.textContent = 'Faltan ' + formatCountdown(diff);
+        }
+
+        updateCountdown();
+        setInterval(updateCountdown, 1000);
+      });
+    });
+  </script>
 {% endblock %}
