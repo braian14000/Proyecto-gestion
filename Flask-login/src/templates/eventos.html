@@ -42,6 +42,7 @@
                     {% if not evento.finalizado %}
                     <a href="{{ url_for('ver_usuarios_evento', evento_id=evento.id) }}" class="btn-usuarios">Ver usuarios</a>
                     <a href="{{ url_for('editar_evento', evento_id=evento.id) }}" class="btn-editar">Editar</a>
+                    <a href="{{ url_for('validar_qr_evento', evento_id=evento.id) }}" class="btn-editar">Validar QR</a>
                     <form method="post" action="{{ url_for('finalizar_evento', evento_id=evento.id) }}" style="flex: 1;" onsubmit="return confirm('¿Finalizar el evento y enviar certificados por Gmail?');">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="btn-eliminar" style="background: #198754; color: white;">Finalizar</button>
