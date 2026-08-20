@@ -2,12 +2,182 @@
 
 {% block title %}Crear evento{% endblock %}
 
+{% block customCSS %}
+<style>
+  body {
+    background: #eef0fa;
+    color: #172653;
+  }
+
+  .event-page {
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 34px 24px 48px;
+  }
+
+  .event-card {
+    border: 1px solid #cfd1e8;
+    border-radius: 16px;
+    background: #fbfbff;
+    box-shadow: 0 18px 45px rgba(30, 35, 91, 0.13);
+  }
+
+  .event-card .card-body {
+    padding: 30px 32px;
+  }
+
+  .event-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+    margin-bottom: 26px;
+  }
+
+  .event-heading h1 {
+    margin: 0 0 8px;
+    color: #121d48;
+    font-size: 2rem;
+    font-weight: 800;
+  }
+
+  .event-heading p {
+    margin: 0;
+    color: #596487;
+  }
+
+  .event-heading-icon {
+    display: grid;
+    width: 48px;
+    height: 48px;
+    flex: 0 0 48px;
+    place-items: center;
+    border-radius: 50%;
+    background: #e9e8fa;
+    color: #3920b8;
+    font-size: 1.4rem;
+  }
+
+  .event-field {
+    margin-bottom: 17px;
+  }
+
+  .event-field label {
+    display: block;
+    margin-bottom: 7px;
+    color: #18234d;
+    font-size: 0.88rem;
+    font-weight: 700;
+  }
+
+  .event-input-wrap {
+    display: flex;
+    align-items: stretch;
+    overflow: hidden;
+    border: 1px solid #cfd1e8;
+    border-radius: 8px;
+    background: #fff;
+  }
+
+  .event-input-icon {
+    display: grid;
+    width: 44px;
+    flex: 0 0 44px;
+    place-items: center;
+    border-right: 1px solid #dedff0;
+    background: #f1f0fc;
+    color: #3920b8;
+    font-size: 1.1rem;
+  }
+
+  .event-input-wrap input,
+  .event-input-wrap textarea,
+  .event-input-wrap select {
+    width: 100%;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    padding: 12px 14px;
+    color: #26335d;
+    background: #fff;
+    box-shadow: none;
+  }
+
+  .event-input-wrap input,
+  .event-input-wrap select {
+    height: 48px;
+  }
+
+  .event-input-wrap textarea {
+    min-height: 138px;
+    resize: vertical;
+  }
+
+  .event-input-wrap:focus-within {
+    border-color: #3920b8;
+    box-shadow: 0 0 0 3px rgba(57, 32, 184, 0.13);
+  }
+
+  .event-input-wrap input::placeholder,
+  .event-input-wrap textarea::placeholder {
+    color: #8790ae;
+    opacity: 1;
+  }
+
+  .event-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 26px;
+  }
+
+  .event-actions .btn {
+    min-width: 138px;
+    min-height: 44px;
+    border-radius: 8px;
+    font-weight: 700;
+  }
+
+  .event-submit {
+    color: #fff !important;
+    border: 1px solid #3215a3 !important;
+    background: #3215a3 !important;
+    box-shadow: 0 7px 15px rgba(50, 21, 163, 0.25);
+  }
+
+  .event-submit:hover {
+    background: #241078 !important;
+  }
+
+  .event-back {
+    color: #3215a3 !important;
+    border: 1px solid #725de0 !important;
+    background: transparent !important;
+  }
+
+  .event-back:hover {
+    color: #fff !important;
+    background: #3215a3 !important;
+  }
+
+  @media (max-width: 576px) {
+    .event-page { padding: 20px 12px 32px; }
+    .event-card .card-body { padding: 24px 18px; }
+    .event-heading h1 { font-size: 1.7rem; }
+  }
+</style>
+{% endblock %}
+
 {% block body %}
-<div class="container mt-5">
-  <div class="card shadow-sm">
-    <div class="card-body p-4">
-      <h3 class="mb-3">Crear evento</h3>
-      <p class="text-muted">Panel propio para organizadores.</p>
+<div class="event-page">
+  <div class="event-card card">
+    <div class="card-body">
+      <div class="event-heading">
+        <div>
+          <h1>Crear evento</h1>
+          <p>Panel propio para organizadores.</p>
+        </div>
+      </div>
 
       {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
@@ -24,35 +194,69 @@
 
       <form method="post">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <div class="mb-3">
-          <label class="form-label">Título</label>
-          <input type="text" class="form-control" name="titulo" required>
+        <div class="event-field">
+          <label for="titulo">Título del evento</label>
+          <div class="event-input-wrap">
+            <input type="text" id="titulo" name="titulo" placeholder="Ingresá un título atractivo para tu evento..." required>
+          </div>
         </div>
         <div class="row g-3">
           <div class="col-md-4">
-            <label class="form-label">Fecha</label>
-            <input type="date" class="form-control" name="fecha" required>
+            <div class="event-field">
+              <label for="fecha">Fecha</label>
+              <div class="event-input-wrap">
+                <input type="date" id="fecha" name="fecha" required>
+              </div>
+            </div>
           </div>
           <div class="col-md-4">
-            <label class="form-label">Horario</label>
-            <input type="time" class="form-control" name="hora" required>
+            <div class="event-field">
+              <label for="hora">Horario</label>
+              <div class="event-input-wrap">
+                <input type="time" id="hora" name="hora" required>
+              </div>
+            </div>
           </div>
           <div class="col-md-4">
-            <label class="form-label">Lugar</label>
-            <input type="text" class="form-control" name="lugar" required>
+            <div class="event-field">
+              <label for="lugar">Lugar</label>
+              <div class="event-input-wrap">
+                <input type="text" id="lugar" name="lugar" placeholder="Ej: Auditorio, Online, etc." required>
+              </div>
+            </div>
           </div>
           <div class="col-md-4">
-            <label class="form-label">Capacidad máxima</label>
-            <input type="number" class="form-control" name="capacidad_maxima" min="1" required>
+            <div class="event-field">
+              <label for="capacidad_maxima">Capacidad máxima</label>
+              <div class="event-input-wrap">
+                <input type="number" id="capacidad_maxima" name="capacidad_maxima" min="1" placeholder="Ej: 100" required>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-8">
+            <div class="event-field">
+              <label for="categoria">Categoría</label>
+              <div class="event-input-wrap">
+                <select id="categoria" name="categoria">
+                  <option value="General" selected>General</option>
+                  <option value="Música">Música</option>
+                  <option value="Deportes">Deportes</option>
+                  <option value="Académico">Académico</option>
+                  <option value="Cultural">Cultural</option>
+                </select>
+              </div>
+            </div>
           </div>
         </div>
-        <div class="mb-3 mt-3">
-          <label class="form-label">Descripción</label>
-          <textarea class="form-control" name="descripcion" rows="5" required></textarea>
+        <div class="event-field">
+          <label for="descripcion">Descripción del evento</label>
+          <div class="event-input-wrap">
+            <textarea id="descripcion" name="descripcion" placeholder="Contá de qué se trata tu evento, qué van a vivir los asistentes, oradores, actividades, etc." required></textarea>
+          </div>
         </div>
-        <div class="d-flex gap-2">
-          <button type="submit" class="btn btn-primary">Crear evento</button>
-          <a href="{{ url_for('home') }}" class="btn btn-secondary">Volver</a>
+        <div class="event-actions">
+          <button type="submit" class="btn event-submit">+ &nbsp; Crear evento</button>
+          <a href="{{ url_for('home') }}" class="btn event-back">← &nbsp; Volver</a>
         </div>
       </form>
     </div>

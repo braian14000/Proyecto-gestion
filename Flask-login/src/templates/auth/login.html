@@ -4,14 +4,159 @@
 
 {% block customCSS %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+<style>
+    body {
+        background: #eef7ff;
+        color: #173d70;
+    }
+
+    .login-page {
+        width: 100%;
+        max-width: 500px;
+        padding: 22px;
+        margin: auto;
+    }
+
+    .login-card {
+        padding: 34px 36px 30px;
+        border: 1px solid #b8dcff;
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.97);
+        box-shadow: 0 20px 55px rgba(56, 148, 226, 0.18);
+    }
+
+    .login-heading {
+        text-align: center;
+    }
+
+    .login-heading h1 {
+        margin-bottom: 8px;
+        color: #142b5d;
+        font-size: 1.75rem;
+        font-weight: 800;
+    }
+
+    .login-divider {
+        width: 43px;
+        height: 3px;
+        margin: 15px auto 22px;
+        border-radius: 99px;
+        background: #1685e8;
+    }
+
+    .login-field {
+        position: relative;
+        margin-bottom: 14px;
+    }
+
+    .login-field .field-icon {
+        position: absolute;
+        top: 50%;
+        left: 15px;
+        z-index: 2;
+        width: 24px;
+        color: #1685e8;
+        font-size: 1.05rem;
+        text-align: center;
+        transform: translateY(-50%);
+    }
+
+    .login-field input {
+        height: 49px;
+        padding: 0 43px 0 18px;
+        border: 1px solid #b8dcff;
+        border-radius: 9px;
+        color: #23345f;
+        background: #fff;
+        box-shadow: none;
+    }
+
+    .login-field input:focus {
+        border-color: #1685e8;
+        box-shadow: 0 0 0 3px rgba(22, 133, 232, 0.12);
+    }
+
+    .login-field input::placeholder {
+        color: #687694;
+        opacity: 1;
+    }
+
+    .login-password-toggle {
+        position: absolute;
+        top: 50%;
+        right: 14px;
+        padding: 0;
+        border: 0;
+        color: #1685e8;
+        background: transparent;
+        box-shadow: none;
+        transform: translateY(-50%);
+    }
+
+    .login-password-toggle:hover {
+        color: #0874cf;
+        background: transparent;
+        box-shadow: none;
+        transform: translateY(-50%);
+    }
+
+    .login-remember {
+        margin: 4px 0 16px;
+        color: #5f7190;
+        text-align: left;
+        font-size: 0.88rem;
+    }
+
+    .login-submit {
+        min-height: 49px;
+        border: 0;
+        border-radius: 8px;
+        background: #1685e8;
+        box-shadow: 0 7px 15px rgba(22, 133, 232, 0.22);
+        font-weight: 700;
+    }
+
+    .login-submit:hover,
+    .login-submit:focus {
+        background: #0874cf;
+    }
+
+    .login-links {
+        display: grid;
+        gap: 10px;
+        margin-top: 20px;
+        text-align: center;
+        font-size: 0.9rem;
+    }
+
+    .login-links a {
+        color: #1685e8;
+        text-decoration: none;
+    }
+
+    .login-links a:hover {
+        color: #0874cf;
+        text-decoration: underline;
+    }
+
+    @media (max-width: 480px) {
+        .login-page { padding: 12px; }
+        .login-card { padding: 27px 20px 25px; }
+    }
+</style>
 {% endblock %}
 
 {% block body %}
-<main class="form-signin w-100 m-auto" style="max-width: 330px; padding: 15px; margin-top: 20px !important;">
+<main class="login-page">
+  <div class="login-card">
+    <div class="login-heading">
+        <h1>Iniciar Sesión</h1>
+    </div>
+
     <form action="/login" method="POST">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
 
-        <h1 class="h3 mb-3 fw-normal">Iniciar Sesión</h1>
+        <div class="login-divider"></div>
         
         {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
@@ -29,24 +174,37 @@
         {% endif %}
         {% endwith %}
         
-        <div class="form-floating mb-2">
-            <input type="text" class="form-control" id="email" name="email" value="{{ remembered_email or '' }}" placeholder="Usuario o correo" required>
-            <label for="email">Usuario o Correo Electrónico</label>
+        <div class="login-field">
+            <input type="text" id="email" name="email" value="{{ remembered_email or '' }}" placeholder="Usuario o correo electrónico" aria-label="Usuario o correo electrónico" required>
         </div>
         
-        <div class="form-floating mb-3">
-            <input type="password" class="form-control" id="password" name="password" placeholder="Password" required>
-            <label for="password">Contraseña</label>
+        <div class="login-field">
+            <input type="password" id="password" name="password" placeholder="Contraseña" aria-label="Contraseña" required>
+            <button type="button" class="login-password-toggle" id="login-password-toggle" aria-label="Mostrar contraseña">ver</button>
         </div>
 
-        <div class="form-check text-start mb-3">
+        <div class="form-check login-remember">
             <input class="form-check-input" type="checkbox" value="1" id="remember_me" name="remember_me" {% if remembered_email %}checked{% endif %}>
             <label class="form-check-label" for="remember_me">Recordar usuario</label>
         </div>
         
-        <button class="w-100 btn btn-lg btn-primary" type="submit">Ingresar</button>
-        <a href="{{ url_for('forgot_password') }}" class="d-block text-center mt-3">¿Olvidaste tu contraseña?</a>
-        <a href="{{ url_for('register') }}" class="d-block text-center mt-2">¿No tienes cuenta? Regístrate aquí</a>
+        <button class="login-submit w-100 btn btn-lg" type="submit">Ingresar</button>
+        <div class="login-links">
+            <a href="{{ url_for('forgot_password') }}">¿Olvidaste tu contraseña?</a>
+            <a href="{{ url_for('register') }}">¿No tienes cuenta? Registrate aquí</a>
+        </div>
     </form>
+  </div>
 </main>
+<script>
+    const loginPassword = document.getElementById('password');
+    const loginPasswordToggle = document.getElementById('login-password-toggle');
+
+    loginPasswordToggle.addEventListener('click', () => {
+        const isPassword = loginPassword.type === 'password';
+        loginPassword.type = isPassword ? 'text' : 'password';
+        loginPasswordToggle.textContent = isPassword ? 'ocultar' : 'ver';
+        loginPasswordToggle.setAttribute('aria-label', isPassword ? 'Ocultar contraseña' : 'Mostrar contraseña');
+    });
+</script>
 {% endblock %}

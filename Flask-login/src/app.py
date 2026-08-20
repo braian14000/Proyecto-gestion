@@ -46,6 +46,7 @@ def ensure_event_table_has_capacity():
                       `lugar` VARCHAR(200),
                       `capacidad_maxima` INT NOT NULL DEFAULT 1,
                       `finalizado` TINYINT(1) NOT NULL DEFAULT 0,
+                      `categoria` VARCHAR(100) DEFAULT 'General',
                       `created_by` INT UNSIGNED NULL,
                       `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                       PRIMARY KEY (`id`)
@@ -73,6 +74,12 @@ def ensure_event_table_has_capacity():
                 cursor.execute("ALTER TABLE `event` ADD COLUMN `finalizado` TINYINT(1) NOT NULL DEFAULT 0")
                 db.connection.commit()
                 print("[INFO] Se agregó la columna finalizado a la tabla event.")
+
+            cursor.execute("SHOW COLUMNS FROM `event` LIKE 'categoria'")
+            if cursor.fetchone() is None:
+                cursor.execute("ALTER TABLE `event` ADD COLUMN `categoria` VARCHAR(100) DEFAULT 'General'")
+                db.connection.commit()
+                print("[INFO] Se agregó la columna categoria a la tabla event.")
     except Exception as ex:
         print(f"[WARN] No se pudo asegurar la estructura de la tabla event: {ex}")
 
@@ -115,7 +122,7 @@ def get_current_user_dni_username():
 def get_events_from_db():
     try:
         cursor = db.connection.cursor()
-        cursor.execute("SELECT id, titulo, fecha, hora, descripcion, lugar, capacidad_maxima, finalizado FROM event ORDER BY fecha, hora")
+        cursor.execute("SELECT id, titulo, fecha, hora, descripcion, lugar, capacidad_maxima, finalizado, categoria FROM event ORDER BY fecha, hora")
         rows = cursor.fetchall()
         events = []
         for r in rows:
@@ -128,7 +135,8 @@ def get_events_from_db():
                 'descripcion': r[4],
                 'lugar': r[5],
                 'capacidad_maxima': int(r[6]) if r[6] is not None else 0,
-                'finalizado': bool(r[7])
+                'finalizado': bool(r[7]),
+                'categoria': r[8] or 'General'
             })
         return events
     except Exception:
@@ -139,7 +147,7 @@ def get_events_created_by_user(db_connection, user_id):
     try:
         cursor = db_connection.connection.cursor()
         cursor.execute(
-            "SELECT id, titulo, fecha, hora, descripcion, lugar, capacidad_maxima, finalizado FROM event WHERE created_by = %s ORDER BY fecha DESC, hora DESC, id DESC",
+            "SELECT id, titulo, fecha, hora, descripcion, lugar, capacidad_maxima, finalizado, categoria FROM event WHERE created_by = %s ORDER BY fecha DESC, hora DESC, id DESC",
             (user_id,)
         )
         rows = cursor.fetchall()
@@ -159,6 +167,7 @@ def get_events_created_by_user(db_connection, user_id):
                 'lugar': r[5],
                 'capacidad_maxima': int(r[6]) if r[6] is not None else 0,
                 'finalizado': bool(r[7]),
+                'categoria': r[8] or 'General',
                 'inscritos_count': inscritos_count
             })
         return events
@@ -170,7 +179,7 @@ def get_event_from_db(event_id):
         cursor = db.connection.cursor()
         cursor.execute(
             """
-            SELECT e.id, e.titulo, e.fecha, e.hora, e.descripcion, e.lugar, e.capacidad_maxima, e.finalizado, e.created_by,
+            SELECT e.id, e.titulo, e.fecha, e.hora, e.descripcion, e.lugar, e.capacidad_maxima, e.finalizado, e.categoria, e.created_by,
                    (SELECT COUNT(*) FROM registrados r WHERE r.evento_id = e.id) AS inscritos_count
             FROM event e
             WHERE e.id = %s
@@ -190,8 +199,9 @@ def get_event_from_db(event_id):
             'lugar': r[5],
             'capacidad_maxima': int(r[6]) if r[6] is not None else 0,
             'finalizado': bool(r[7]),
-            'created_by': r[8],
-            'inscritos_count': int(r[9]) if r[9] is not None else 0
+            'categoria': r[8] or 'General',
+            'created_by': r[9],
+            'inscritos_count': int(r[10]) if r[10] is not None else 0
         }
     except Exception:
         return None
@@ -234,7 +244,7 @@ def get_user_registrations(db, dni_usuario):
         cursor = db.connection.cursor()
         cursor.execute(
             """
-            SELECT r.id, r.evento_id, r.dni_usuario, r.nombre_usuario, r.qr_code, r.asistido, e.titulo, e.fecha, e.hora, e.descripcion, e.lugar
+            SELECT r.id, r.evento_id, r.dni_usuario, r.nombre_usuario, r.qr_code, r.asistido, e.titulo, e.fecha, e.hora, e.descripcion, e.lugar, e.categoria
             FROM registrados r
             LEFT JOIN event e ON e.id = r.evento_id
             WHERE r.dni_usuario = %s
@@ -257,7 +267,8 @@ def get_user_registrations(db, dni_usuario):
                 'fecha': r[7].strftime('%Y-%m-%d') if hasattr(r[7], 'strftime') else str(r[7]),
                 'hora': hora,
                 'descripcion': r[9],
-                'lugar': r[10]
+                'lugar': r[10],
+                'categoria': r[11] or 'General'
             })
         return regs
     except Exception as ex:
@@ -431,6 +442,11 @@ def register():
         telefono = request.form['telefono'].strip()
         email = request.form['email'].strip()
         dni = request.form['dni'].strip()
+        rol = request.form.get('rol', 'estudiante').strip().lower()
+
+        if rol not in ('estudiante', 'organizador'):
+            flash("Selecciona si deseas registrarte como usuario u organizador.")
+            return render_template('auth/register.html')
 
         if not dni.isdigit() or len(dni) > 8:
             flash("El DNI debe contener solo números y como máximo 8 dígitos.")
@@ -455,8 +471,8 @@ def register():
                 return render_template('auth/register.html')
 
             cursor.execute(
-                "INSERT INTO `user` (username, password, telefono, email, dni) VALUES (%s, %s, %s, %s, %s)",
-                (username, hashed_password, telefono, email, dni)
+                "INSERT INTO `user` (username, password, telefono, email, dni, rol) VALUES (%s, %s, %s, %s, %s, %s)",
+                (username, hashed_password, telefono, email, dni, rol)
             )
             db.connection.commit()
 
@@ -608,6 +624,7 @@ def admin_dashboard():
         descripcion = request.form.get('descripcion', '').strip()
         lugar = request.form.get('lugar', '').strip()
         capacidad_maxima = request.form.get('capacidad_maxima', '').strip()
+        categoria = request.form.get('categoria', 'General').strip()
 
         try:
             capacidad = int(capacidad_maxima)
@@ -622,19 +639,19 @@ def admin_dashboard():
             user_id = getattr(current_user, 'id', None)
             if user_id in (None, 0):
                 cursor.execute(
-                    "INSERT INTO event (titulo, fecha, hora, descripcion, lugar, capacidad_maxima) VALUES (%s, %s, %s, %s, %s, %s)",
-                    (titulo, fecha, hora, descripcion, lugar, capacidad)
+                    "INSERT INTO event (titulo, fecha, hora, descripcion, lugar, capacidad_maxima, categoria) VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                    (titulo, fecha, hora, descripcion, lugar, capacidad, categoria)
                 )
             else:
                 try:
                     cursor.execute(
-                        "INSERT INTO event (titulo, fecha, hora, descripcion, lugar, capacidad_maxima, created_by) VALUES (%s, %s, %s, %s, %s, %s, %s)",
-                        (titulo, fecha, hora, descripcion, lugar, capacidad, user_id)
+                        "INSERT INTO event (titulo, fecha, hora, descripcion, lugar, capacidad_maxima, categoria, created_by) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                        (titulo, fecha, hora, descripcion, lugar, capacidad, categoria, user_id)
                     )
                 except Exception:
                     cursor.execute(
-                        "INSERT INTO event (titulo, fecha, hora, descripcion, lugar, capacidad_maxima) VALUES (%s, %s, %s, %s, %s, %s)",
-                        (titulo, fecha, hora, descripcion, lugar, capacidad)
+                        "INSERT INTO event (titulo, fecha, hora, descripcion, lugar, capacidad_maxima, categoria) VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                        (titulo, fecha, hora, descripcion, lugar, capacidad, categoria)
                     )
             db.connection.commit()
         except Exception as ex:
@@ -659,6 +676,7 @@ def crear_evento_organizador():
         descripcion = request.form.get('descripcion', '').strip()
         lugar = request.form.get('lugar', '').strip()
         capacidad_maxima = request.form.get('capacidad_maxima', '').strip()
+        categoria = request.form.get('categoria', 'General').strip()
 
         try:
             capacidad = int(capacidad_maxima)
@@ -673,19 +691,19 @@ def crear_evento_organizador():
             user_id = getattr(current_user, 'id', None)
             if user_id in (None, 0):
                 cursor.execute(
-                    "INSERT INTO event (titulo, fecha, hora, descripcion, lugar, capacidad_maxima) VALUES (%s, %s, %s, %s, %s, %s)",
-                    (titulo, fecha, hora, descripcion, lugar, capacidad)
+                    "INSERT INTO event (titulo, fecha, hora, descripcion, lugar, capacidad_maxima, categoria) VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                    (titulo, fecha, hora, descripcion, lugar, capacidad, categoria)
                 )
             else:
                 try:
                     cursor.execute(
-                        "INSERT INTO event (titulo, fecha, hora, descripcion, lugar, capacidad_maxima, created_by) VALUES (%s, %s, %s, %s, %s, %s, %s)",
-                        (titulo, fecha, hora, descripcion, lugar, capacidad, user_id)
+                        "INSERT INTO event (titulo, fecha, hora, descripcion, lugar, capacidad_maxima, categoria, created_by) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                        (titulo, fecha, hora, descripcion, lugar, capacidad, categoria, user_id)
                     )
                 except Exception:
                     cursor.execute(
-                        "INSERT INTO event (titulo, fecha, hora, descripcion, lugar, capacidad_maxima) VALUES (%s, %s, %s, %s, %s, %s)",
-                        (titulo, fecha, hora, descripcion, lugar, capacidad)
+                        "INSERT INTO event (titulo, fecha, hora, descripcion, lugar, capacidad_maxima, categoria) VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                        (titulo, fecha, hora, descripcion, lugar, capacidad, categoria)
                     )
             db.connection.commit()
             flash('Evento creado correctamente.', 'success')
@@ -847,6 +865,7 @@ def editar_evento(evento_id):
         descripcion = request.form.get('descripcion', '').strip()
         lugar = request.form.get('lugar', '').strip()
         capacidad_maxima = request.form.get('capacidad_maxima', '').strip()
+        categoria = request.form.get('categoria', 'General').strip()
 
         try:
             capacidad = int(capacidad_maxima)
@@ -859,8 +878,8 @@ def editar_evento(evento_id):
         try:
             cursor = db.connection.cursor()
             cursor.execute(
-                "UPDATE event SET titulo = %s, fecha = %s, hora = %s, descripcion = %s, lugar = %s, capacidad_maxima = %s WHERE id = %s",
-                (titulo, fecha, hora, descripcion, lugar, capacidad, evento_id)
+                "UPDATE event SET titulo = %s, fecha = %s, hora = %s, descripcion = %s, lugar = %s, capacidad_maxima = %s, categoria = %s WHERE id = %s",
+                (titulo, fecha, hora, descripcion, lugar, capacidad, categoria, evento_id)
             )
             db.connection.commit()
             flash("Evento actualizado exitosamente.", "success")
@@ -918,20 +937,44 @@ def home():
 @login_required
 def ver_eventos():
     eventos = get_events_from_db()
-   
-    if not eventos:
-        eventos = [{
-            'id': 1,
-            'titulo': 'Concierto de Rock',
-            'fecha': '2026-07-15',
-            'hora': '20:00',
-            'descripcion': 'Una noche increíble con las mejores bandas locales.',
-            'lugar': 'Estadio Principal',
-            'capacidad_maxima': 200
-        }]
+    busqueda = request.args.get('busqueda', '').strip()
+    categoria_seleccionada = request.args.get('categoria', '').strip()
+    orden_fecha = request.args.get('orden_fecha', 'recientes').strip()
+
+    if busqueda:
+        busqueda_normalizada = busqueda.casefold()
+        eventos = [
+            evento for evento in eventos
+            if busqueda_normalizada in evento.get('titulo', '').casefold()
+        ]
+
+    if categoria_seleccionada:
+        eventos = [
+            evento for evento in eventos
+            if evento.get('categoria', 'General') == categoria_seleccionada
+        ]
+
+    eventos.sort(
+        key=lambda evento: (evento.get('fecha', ''), evento.get('hora', '')),
+        reverse=orden_fecha != 'antiguos'
+    )
+
+    categorias = sorted({
+        evento.get('categoria', 'General')
+        for evento in get_events_from_db()
+        if evento.get('categoria')
+    })
 
     usuario_display = getattr(current_user, 'username', None) or getattr(current_user, 'email', '')
-    return render_template('eventos.html', eventos=eventos, usuario=usuario_display)
+    return render_template(
+        'eventos.html',
+        eventos=eventos,
+        usuario=usuario_display,
+        categorias=categorias,
+        busqueda=busqueda,
+        categoria_seleccionada=categoria_seleccionada,
+        orden_fecha=orden_fecha
+    )
 
 @app.route('/evento/<int:evento_id>')
 @login_required

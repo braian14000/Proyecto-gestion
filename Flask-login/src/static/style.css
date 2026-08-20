@@ -85,6 +85,23 @@ button:hover, .btn:hover, .btn-volver:hover {
     transform: translateY(-1px);
 }
 
+.btn-anotarme {
+    width: 100%;
+    max-width: 260px;
+    margin-top: 6px;
+    background-color: transparent;
+    color: #04047f;
+    border: 1px solid #04047f;
+    box-shadow: 0 4px 12px rgba(4, 4, 127, 0.12);
+}
+
+.btn-anotarme:hover {
+    background-color: #04047f;
+    color: #ffffff;
+    border-color: #04047f;
+    box-shadow: 0 7px 16px rgba(4, 4, 127, 0.18);
+}
+
 .btn-secondary {
     background-color: white;
     color: #2c3e50;
@@ -321,4 +338,5 @@ a:hover {
     font-weight: 500;
     font-size: 14px;
 }
+
 

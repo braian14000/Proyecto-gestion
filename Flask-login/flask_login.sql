@@ -13,7 +13,8 @@ CREATE TABLE `user` (
   `password` varchar(255) NOT NULL,
   `telefono` varchar(50) NOT NULL,
   `email` varchar(100) NOT NULL,
-  `dni` varchar(20) NOT NULL
+  `dni` varchar(20) NOT NULL,
+  `rol` enum('estudiante','organizador','admin') NOT NULL DEFAULT 'estudiante'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 

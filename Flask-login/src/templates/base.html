@@ -53,6 +53,56 @@
             background-color: #04047f !important;
             color: white !important;
         }
+
+        /* Estilo común para las acciones de las vistas autenticadas. */
+        body:not(.auth-page) .btn,
+        body:not(.auth-page) button:not(.btn-close):not(.btn-check),
+        body:not(.auth-page) .btn-usuarios,
+        body:not(.auth-page) .btn-editar,
+        body:not(.auth-page) .btn-eliminar {
+            min-height: 42px;
+            padding: 10px 16px;
+            border-radius: 10px;
+            font-weight: 700;
+            color: #04047f !important;
+            background-color: transparent !important;
+            border: 1px solid #04047f !important;
+            box-shadow: 0 4px 12px rgba(4, 4, 127, 0.12);
+            transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+        }
+
+        body:not(.auth-page) .btn:hover,
+        body:not(.auth-page) button:not(.btn-close):not(.btn-check):hover,
+        body:not(.auth-page) .btn-usuarios:hover,
+        body:not(.auth-page) .btn-editar:hover,
+        body:not(.auth-page) .btn-eliminar:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 7px 16px rgba(4, 4, 127, 0.18);
+            color: #ffffff !important;
+            background-color: #04047f !important;
+        }
+
+        body:not(.auth-page) .btn-danger,
+        body:not(.auth-page) .btn-eliminar {
+            color: #c0392b !important;
+            border-color: #c0392b !important;
+        }
+
+        body:not(.auth-page) .btn-danger:hover,
+        body:not(.auth-page) .btn-eliminar:hover {
+            color: #ffffff !important;
+            background-color: #c0392b !important;
+        }
+
+        body:not(.auth-page) .btn:focus-visible,
+        body:not(.auth-page) button:not(.btn-close):not(.btn-check):focus-visible,
+        body:not(.auth-page) .btn-usuarios:focus-visible,
+        body:not(.auth-page) .btn-editar:focus-visible,
+        body:not(.auth-page) .btn-eliminar:focus-visible {
+            outline: 3px solid rgba(13, 110, 253, 0.28);
+            outline-offset: 2px;
+        }
+
         .btn-soporte {
             position: fixed !important;
             bottom: 20px !important;
@@ -81,7 +131,7 @@
     {% endblock %}
 </head>
 
-<body class="text-center">
+<body class="text-center {{ 'auth-page' if request.endpoint in ['login', 'register', 'forgot_password', 'reset_password', 'new_password'] else 'app-page' }}">
     {% if request.endpoint != 'home' %}
     {% endif %}
     {% if request.endpoint not in ['login', 'register'] %}

@@ -10,6 +10,60 @@
     {% set is_admin = (usuario == 'admin') or (current_user.email|default('') == 'admin') or (current_user.rol|default('') == 'admin') %}
     {% set is_organizador = current_user.rol|default('') == 'organizador' %}
 
+    <style>
+        .filtros-eventos {
+            display: grid;
+            grid-template-columns: minmax(220px, 1.5fr) minmax(150px, 1fr) minmax(180px, 1fr) auto auto;
+            gap: 10px;
+            align-items: stretch;
+            margin-bottom: 24px;
+            padding: 16px;
+            border: 1px solid #d7dbea;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.7);
+        }
+        .filtros-eventos label {
+            display: block;
+            height: 19px;
+            margin: 0;
+            line-height: 19px;
+            color: #18234d;
+            font-size: .82rem;
+            font-weight: 700;
+        }
+        .filtros-eventos > div {
+            display: grid;
+            min-width: 0;
+            grid-template-rows: 19px 40px;
+            gap: 5px;
+            align-content: end;
+        }
+        .filtros-eventos input,
+        .filtros-eventos select {
+            width: 100%;
+            height: 40px;
+            min-height: 40px;
+            box-sizing: border-box;
+            border: 1px solid #cfd1e8;
+            border-radius: 8px;
+            padding: 8px 10px;
+            color: #26335d;
+            background: #fff;
+        }
+        .filtros-eventos .btn {
+            align-self: end;
+            height: 40px;
+            min-height: 40px;
+            white-space: nowrap;
+        }
+        @media (max-width: 900px) {
+            .filtros-eventos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        @media (max-width: 520px) {
+            .filtros-eventos { grid-template-columns: 1fr; }
+        }
+    </style>
+
     <div class="container mt-4">
         <div class="encabezado d-flex justify-content-between align-items-center mb-3">
             <h2>Eventos</h2>
@@ -22,6 +76,32 @@
             </div>
         </div>
 
+        <form method="get" action="{{ url_for('ver_eventos') }}" class="filtros-eventos">
+            <div>
+                <label for="busqueda">Buscar evento</label>
+                <input type="search" id="busqueda" name="busqueda" value="{{ busqueda or '' }}" placeholder="Nombre del evento">
+            </div>
+            <div>
+                <label for="categoria">Categoría</label>
+                <select id="categoria" name="categoria">
+                    <option value="">Todas</option>
+                    {% for categoria in categorias %}
+                    <option value="{{ categoria }}" {% if categoria == categoria_seleccionada %}selected{% endif %}>{{ categoria }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label for="orden_fecha">Ordenar por fecha</label>
+                <select id="orden_fecha" name="orden_fecha">
+                    <option value="recientes" {% if orden_fecha != 'antiguos' %}selected{% endif %}>Más recientes a más antiguas</option>
+                    <option value="antiguos" {% if orden_fecha == 'antiguos' %}selected{% endif %}>Más antiguas a más recientes</option>
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary">Filtrar</button>
+            <a href="{{ url_for('ver_eventos') }}" class="btn btn-outline-secondary">Limpiar</a>
+        </form>
+
+        {% if eventos %}
         <div class="grid-eventos">
             {% for evento in eventos %}
             <div class="tarjeta-evento">
@@ -72,6 +152,17 @@
             </div>
             {% endfor %}
         </div>
+        {% else %}
+        <div class="alert alert-light border text-center py-4" role="status">
+            {% if busqueda or categoria_seleccionada %}
+            <h4 class="mb-2">No hay coincidencias</h4>
+            <p class="mb-0 text-muted">No encontramos eventos con los filtros seleccionados.</p>
+            {% else %}
+            <h4 class="mb-2">No hay eventos</h4>
+            <p class="mb-0 text-muted">Todavía no hay eventos disponibles para mostrar.</p>
+            {% endif %}
+        </div>
+        {% endif %}
 
         <div class="enlaces mt-4 pt-3 border-top">
             {% if is_admin %}

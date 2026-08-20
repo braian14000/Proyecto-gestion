@@ -53,7 +53,7 @@
                 {% if cupos_disponibles > 0 %}
                     <form method="post" action="{{ url_for('registrar_evento', evento_id=evento.id) }}" onsubmit="return confirm('¿Estás seguro de que deseas anotarte a este evento?');">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="submit" class="btn">Anotarme</button>
+                        <button type="submit" class="btn btn-anotarme">Anotarme</button>
                     </form>
                 {% else %}
                     <div class="flash error" style="margin-top: 20px;">No hay cupos disponibles para este evento.</div>

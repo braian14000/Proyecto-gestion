@@ -4,14 +4,298 @@
 
 {% block customCSS %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+<style>
+    body {
+        color: #f4f6fb;
+    }
+
+    .register-page {
+        width: 100%;
+        max-width: 500px;
+        padding: 22px;
+        margin: auto;
+    }
+
+    .register-card {
+        position: relative;
+        overflow: hidden;
+        padding: 34px 36px 30px;
+        border: 1px solid #303030;
+        border-radius: 18px;
+        background: #0d0d0e;
+        box-shadow: 0 20px 55px rgba(0, 0, 0, 0.42);
+    }
+
+    .register-card::after {
+        content: '';
+        position: absolute;
+        width: 190px;
+        height: 70px;
+        right: -55px;
+        bottom: -25px;
+        border-radius: 50% 50% 0 0;
+        background: rgba(31, 111, 235, 0.2);
+        transform: rotate(-12deg);
+    }
+
+    .register-heading {
+        position: relative;
+        z-index: 1;
+        text-align: center;
+    }
+
+    .register-icon {
+        display: grid;
+        width: 68px;
+        height: 68px;
+        margin: 0 auto 13px;
+        place-items: center;
+        border-radius: 50%;
+        color: #2d8cff;
+        font-size: 2rem;
+    }
+
+    .register-heading h1 {
+        margin-bottom: 8px;
+        color: #ffffff;
+        font-size: 1.75rem;
+        font-weight: 800;
+    }
+
+    .register-heading p {
+        margin-bottom: 22px;
+        color: #b9bec9;
+    }
+
+    .role-legend {
+        margin-bottom: 9px;
+        color: #6d7890;
+        font-size: 0.9rem;
+    }
+
+    .role-switch {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        padding: 3px;
+        border: 1px solid #303033;
+        border-radius: 999px;
+        background: #19191b;
+    }
+
+    .role-switch .btn {
+        min-height: 42px;
+        border: 0;
+        border-radius: 999px;
+        color: #b9bec9;
+        font-weight: 700;
+        box-shadow: none;
+    }
+
+    .role-switch .btn:hover,
+    .role-switch .btn:focus {
+        color: #2d8cff;
+        background: #222225;
+    }
+
+    .role-switch .btn-check:checked + .btn {
+        color: #fff;
+        background: #050505;
+        box-shadow: 0 5px 12px rgba(0, 0, 0, 0.35);
+    }
+
+    .register-divider {
+        width: 43px;
+        height: 3px;
+        margin: 15px auto 20px;
+        border-radius: 99px;
+        background: #2d8cff;
+    }
+
+    .register-field {
+        position: relative;
+        margin-bottom: 14px;
+    }
+
+    .register-field .field-icon {
+        position: absolute;
+        top: 50%;
+        left: 15px;
+        z-index: 2;
+        width: 24px;
+        color: #aeb5c3;
+        font-size: 1.1rem;
+        text-align: center;
+        transform: translateY(-50%);
+    }
+
+    .register-field input {
+        height: 49px;
+        padding: 0 43px 0 53px;
+        border: 1px solid #37373b;
+        border-radius: 9px;
+        color: #f4f6fb;
+        background: #19191b;
+        box-shadow: none;
+    }
+
+    .register-field input:focus {
+        border-color: #2d8cff;
+        box-shadow: 0 0 0 3px rgba(45, 140, 255, 0.16);
+    }
+
+    .register-field input::placeholder {
+        color: #b9bec9;
+        opacity: 1;
+    }
+
+    .password-toggle {
+        position: absolute;
+        top: 50%;
+        right: 14px;
+        padding: 0;
+        border: 0;
+        color: #aeb5c3;
+        background: transparent;
+        box-shadow: none;
+        transform: translateY(-50%);
+    }
+
+    .password-toggle:hover {
+        color: #2d8cff;
+        background: transparent;
+        box-shadow: none;
+        transform: translateY(-50%);
+    }
+
+    .register-submit {
+        position: relative;
+        z-index: 1;
+        min-height: 49px;
+        margin-top: 5px;
+        border: 0;
+        border-radius: 8px;
+        background: #2d8cff;
+        box-shadow: 0 7px 15px rgba(45, 140, 255, 0.25);
+        font-weight: 700;
+    }
+
+    .register-submit:hover,
+    .register-submit:focus {
+        background: #176fd1;
+    }
+
+    .register-login {
+        position: relative;
+        z-index: 1;
+        margin: 20px 0 0;
+        color: #b9bec9;
+        font-size: 0.9rem;
+    }
+
+    .register-login a {
+        color: #2d8cff;
+        font-weight: 700;
+        text-decoration: none;
+    }
+
+    .organizer-mode .register-card {
+        border-color: #b8dcff;
+        background: #f8fcff;
+        box-shadow: 0 20px 55px rgba(56, 148, 226, 0.2);
+    }
+
+    .organizer-mode .register-icon {
+        color: #1685e8;
+        background: #e3f2ff;
+    }
+
+    .organizer-mode .role-switch .btn-check:checked + .btn,
+    .organizer-mode .register-submit {
+        background: #1685e8;
+    }
+
+    .organizer-mode .register-divider {
+        background: #1685e8;
+    }
+
+    .organizer-mode .register-field input:focus {
+        border-color: #1685e8;
+        box-shadow: 0 0 0 3px rgba(22, 133, 232, 0.12);
+    }
+
+    .organizer-mode .register-submit:hover,
+    .organizer-mode .register-submit:focus,
+    .organizer-mode .register-login a {
+        color: #1685e8;
+    }
+
+    .organizer-mode .register-submit:hover,
+    .organizer-mode .register-submit:focus {
+        color: #fff;
+        background: #0874cf;
+    }
+
+    .organizer-mode .register-heading h1,
+    .organizer-mode .register-heading p,
+    .organizer-mode .register-login {
+        color: #173d70;
+    }
+
+    .organizer-mode .role-switch,
+    .organizer-mode .register-field input {
+        border-color: #b8dcff;
+        background: #fff;
+    }
+
+    .organizer-mode .role-switch .btn,
+    .organizer-mode .register-field input {
+        color: #466385;
+    }
+
+    .organizer-mode .role-switch .btn:hover,
+    .organizer-mode .role-switch .btn:focus {
+        color: #1685e8;
+        background: #edf8ff;
+    }
+
+    .organizer-mode .register-login a {
+        color: #1685e8;
+    }
+
+    @media (max-width: 480px) {
+        .register-page { padding: 12px; }
+        .register-card { padding: 27px 20px 25px; }
+    }
+</style>
 {% endblock %}
 
 {% block body %}
-<main class="form-signin w-100 m-auto" style="max-width: 330px; padding: 15px; margin-top: 20px !important;">
+<main class="register-page" id="register-page">
+  <div class="register-card">
+    <div class="register-heading">
+        <div class="register-icon" id="register-icon" aria-hidden="true">👤</div>
+        <h1>Crear cuenta</h1>
+        <p>Registrarme como:</p>
+    </div>
+
     <form action="/register" method="POST">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
 
-        <h1 class="h3 mb-3 fw-normal">Crear una cuenta</h1>
+        <fieldset class="mb-3">
+            <legend class="visually-hidden">Tipo de cuenta</legend>
+            <div class="role-switch">
+                <div>
+                    <input type="radio" class="btn-check" name="rol" id="rol-estudiante" value="estudiante" checked>
+                    <label class="btn w-100" for="rol-estudiante">👤 &nbsp; Usuario</label>
+                </div>
+                <div>
+                    <input type="radio" class="btn-check" name="rol" id="rol-organizador" value="organizador">
+                    <label class="btn w-100" for="rol-organizador">🧑‍💼 &nbsp; Organizador</label>
+                </div>
+            </div>
+        </fieldset>
+
+        <div class="register-divider"></div>
 
         {% with messages = get_flashed_messages() %}
         {% if messages %}
@@ -24,34 +308,63 @@
         {% endwith %}
         
 
-        <div class="form-floating mb-2">
-        <input type="text" class="form-control" id="username" name="username" placeholder="Username" required>
-        <label for="username">Usuario</label>
+        <div class="register-field">
+        <span class="field-icon" aria-hidden="true">👤</span>
+        <input type="text" id="username" name="username" placeholder="Usuario" aria-label="Usuario" required>
         </div>
 
-        <div class="form-floating mb-2">
-        <input type="text" inputmode="numeric" pattern="[0-9]{1,8}" maxlength="8" title="Ingrese solo números, máximo 8 dígitos" oninput="this.value=this.value.replace(/[^0-9]/g,'')" class="form-control" id="dni" name="dni" placeholder="DNI" required>
-        <label for="dni">DNI</label>
+        <div class="register-field">
+        <span class="field-icon" aria-hidden="true">🪪</span>
+        <input type="text" inputmode="numeric" pattern="[0-9]{1,8}" maxlength="8" title="Ingrese solo números, máximo 8 dígitos" oninput="this.value=this.value.replace(/[^0-9]/g,'')" id="dni" name="dni" placeholder="DNI" aria-label="DNI" required>
         </div>
 
-        <div class="form-floating mb-3">
-        <input type="password" class="form-control" id="password" minlength="8"  name="password" placeholder="Password" required>
-        <label for="password">Contraseña</label>
+        <div class="register-field">
+        <span class="field-icon" aria-hidden="true">🔒</span>
+        <input type="password" id="password" minlength="8"  name="password" placeholder="Contraseña" aria-label="Contraseña" required>
+        <button type="button" class="password-toggle" id="password-toggle" aria-label="Mostrar contraseña">ver</button>
         </div>
 
-        <div class="form-floating mb-2">
-            <input type="email" class="form-control" id="email" name="email" placeholder="name@example.com" required>
-            <label for="email">Correo Electrónico</label>
+        <div class="register-field">
+            <span class="field-icon" aria-hidden="true">✉️</span>
+            <input type="email" id="email" name="email" placeholder="Correo Electrónico" aria-label="Correo Electrónico" required>
         </div>
 
-        <div class="form-floating mb-2">
-            <input type="tel" inputmode="tel" pattern="[0-9+\-() ]{1,10}" maxlength="10" title="Ingrese un número con código de área, máximo 10 caracteres" oninput="this.value=this.value.replace(/[^0-9+\-() ]/g,'')" class="form-control" id="telefono" name="telefono" placeholder="Teléfono con código de área" required>
-            <label for="telefono">Teléfono</label>
+        <div class="register-field">
+            <span class="field-icon" aria-hidden="true">📞</span>
+            <input type="tel" inputmode="tel" pattern="[0-9+\-() ]{1,10}" maxlength="10" title="Ingrese un número con código de área, máximo 10 caracteres" oninput="this.value=this.value.replace(/[^0-9+\-() ]/g,'')" id="telefono" name="telefono" placeholder="Teléfono" aria-label="Teléfono" required>
         </div>
         
         
-        <button class="w-100 btn btn-lg btn-success mb-2" type="submit">Registrarse</button>
-        <a href="{{ url_for('login') }}" class="d-block text-center mt-2">¿Ya tienes cuenta? Inicia sesión</a>
+        <button class="register-submit w-100 btn btn-lg mb-2" id="register-submit" type="submit">👤 &nbsp; Crear mi cuenta</button>
+        <p class="register-login">¿Ya tenés cuenta? <a href="{{ url_for('login') }}">Iniciar sesión</a></p>
     </form>
+  </div>
 </main>
+<script>
+    const registerPage = document.getElementById('register-page');
+    const roleOptions = document.querySelectorAll('input[name="rol"]');
+    const usernameInput = document.getElementById('username');
+    const registerIcon = document.getElementById('register-icon');
+    const registerSubmit = document.getElementById('register-submit');
+    const passwordInput = document.getElementById('password');
+    const passwordToggle = document.getElementById('password-toggle');
+
+    function updateUsernameText() {
+        const isOrganizer = document.getElementById('rol-organizador').checked;
+        const text = isOrganizer ? 'Usuario organizador' : 'Usuario';
+        usernameInput.placeholder = text;
+        usernameInput.setAttribute('aria-label', text);
+        registerPage.classList.toggle('organizer-mode', isOrganizer);
+        registerIcon.textContent = isOrganizer ? '🧑‍💼' : '👤';
+        registerSubmit.textContent = isOrganizer ? 'Crear cuenta organizador' : 'Crear mi cuenta';
+    }
+
+    roleOptions.forEach((option) => option.addEventListener('change', updateUsernameText));
+    passwordToggle.addEventListener('click', () => {
+        const isPassword = passwordInput.type === 'password';
+        passwordInput.type = isPassword ? 'text' : 'password';
+        passwordToggle.textContent = isPassword ? '🙈' : '👁️';
+        passwordToggle.setAttribute('aria-label', isPassword ? 'Ocultar contraseña' : 'Mostrar contraseña');
+    });
+</script>
 {% endblock %}
