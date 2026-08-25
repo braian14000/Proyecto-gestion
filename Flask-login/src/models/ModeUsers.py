@@ -6,7 +6,18 @@ class ModelUser():
     def login(cls, db, user):
         try:
             cursor = db.connection.cursor()
-            sql = "SELECT id, username, email, password, telefono, dni, rol FROM `user` WHERE email = %s OR username = %s"
+            sql = """
+                                SELECT u.id, u.username, u.email, u.password, u.telefono, u.dni,
+                                             CASE
+                                                 WHEN u.rol = 'organizador' AND NOT EXISTS (
+                                                     SELECT 1 FROM organizer_role_requests r
+                                                     WHERE r.user_id = u.id AND r.status = 'aprobada'
+                                                 ) THEN 'estudiante'
+                                                 ELSE u.rol
+                                             END AS rol
+                                FROM `user` u
+                                WHERE u.email = %s OR u.username = %s
+                        """
             cursor.execute(sql, (user.email, user.email))
             row = cursor.fetchone()
             
@@ -32,7 +43,18 @@ class ModelUser():
     def get_by_id(cls, db, id):
         try:
             cursor = db.connection.cursor()
-            sql = "SELECT id, username, email, telefono, dni, rol FROM `user` WHERE id = %s"
+            sql = """
+                                SELECT u.id, u.username, u.email, u.telefono, u.dni,
+                                             CASE
+                                                 WHEN u.rol = 'organizador' AND NOT EXISTS (
+                                                     SELECT 1 FROM organizer_role_requests r
+                                                     WHERE r.user_id = u.id AND r.status = 'aprobada'
+                                                 ) THEN 'estudiante'
+                                                 ELSE u.rol
+                                             END AS rol
+                                FROM `user` u
+                                WHERE u.id = %s
+                        """
             cursor.execute(sql, (id,))
             row = cursor.fetchone()
             
@@ -73,6 +95,18 @@ class ModelUser():
             cursor = db.connection.cursor()
             sql = "UPDATE `user` SET rol = %s WHERE id = %s"
             cursor.execute(sql, (new_rol, user_id))
+            if new_rol == 'organizador':
+                cursor.execute(
+                    """
+                    INSERT INTO organizer_role_requests (user_id, status, requested_at, reviewed_at)
+                    SELECT %s, 'aprobada', NOW(), NOW()
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM organizer_role_requests
+                        WHERE user_id = %s AND status = 'aprobada'
+                    )
+                    """,
+                    (user_id, user_id)
+                )
             db.connection.commit()
             return True
         except Exception as ex:

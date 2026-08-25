@@ -3,7 +3,10 @@
 {% block title %}Crear evento{% endblock %}
 
 {% block customCSS %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
+  .map-picker { width: 100%; height: 320px; margin-top: 8px; border: 1px solid #cfd1e8; border-radius: 8px; overflow: hidden; }
+  .map-help { color: #596487; font-size: .85rem; }
   body {
     background: #eef0fa;
     color: #172653;
@@ -192,12 +195,12 @@
       {% endif %}
       {% endwith %}
 
-      <form method="post">
+      <form method="post" enctype="multipart/form-data">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="event-field">
           <label for="titulo">Título del evento</label>
           <div class="event-input-wrap">
-            <input type="text" id="titulo" name="titulo" placeholder="Ingresá un título atractivo para tu evento..." required>
+            <input type="text" id="titulo" name="titulo" placeholder="Ingresá un título a tu evento " required>
           </div>
         </div>
         <div class="row g-3">
@@ -226,6 +229,17 @@
             </div>
           </div>
           <div class="col-md-4">
+            <input type="hidden" name="latitud">
+            <input type="hidden" name="longitud">
+          </div>
+          <div class="col-12">
+            <div class="event-field">
+              <label>Seleccionar ubicación en el mapa</label>
+              <div id="event-map" class="map-picker"></div>
+              <p class="map-help mb-0">Hacé clic en el mapa para colocar la ubicación del evento. Mapa de OpenStreetMap.</p>
+            </div>
+          </div>
+          <div class="col-md-4">
             <div class="event-field">
               <label for="capacidad_maxima">Capacidad máxima</label>
               <div class="event-input-wrap">
@@ -251,7 +265,13 @@
         <div class="event-field">
           <label for="descripcion">Descripción del evento</label>
           <div class="event-input-wrap">
-            <textarea id="descripcion" name="descripcion" placeholder="Contá de qué se trata tu evento, qué van a vivir los asistentes, oradores, actividades, etc." required></textarea>
+            <textarea id="descripcion" name="descripcion" placeholder="Agrega una descripcion de la finalidad del evento..." required></textarea>
+          </div>
+        </div>
+        <div class="event-field">
+          <label for="imagen">Imagen del evento (opcional)</label>
+          <div class="event-input-wrap">
+            <input type="file" id="imagen" name="imagen" accept="image/jpeg,image/png,image/webp">
           </div>
         </div>
         <div class="event-actions">
@@ -262,4 +282,27 @@
     </div>
   </div>
 </div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+  const eventMap = L.map('event-map').setView([-31.42497, -62.08404], 15);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(eventMap);
+  let eventMarker;
+  const latitudeInput = document.querySelector('[name="latitud"]');
+  const longitudeInput = document.querySelector('[name="longitud"]');
+  const existingLatitude = parseFloat(latitudeInput.value);
+  const existingLongitude = parseFloat(longitudeInput.value);
+  if (!Number.isNaN(existingLatitude) && !Number.isNaN(existingLongitude)) {
+    eventMarker = L.marker([existingLatitude, existingLongitude]).addTo(eventMap);
+    eventMap.setView([existingLatitude, existingLongitude], 15);
+  }
+  eventMap.on('click', (event) => {
+    if (eventMarker) eventMarker.setLatLng(event.latlng);
+    else eventMarker = L.marker(event.latlng).addTo(eventMap);
+    latitudeInput.value = event.latlng.lat.toFixed(7);
+    longitudeInput.value = event.latlng.lng.toFixed(7);
+  });
+</script>
 {% endblock %}

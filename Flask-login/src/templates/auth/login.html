@@ -62,13 +62,17 @@
     }
 
     .login-field input {
+        display: block;
+        width: 100%;
+        box-sizing: border-box;
         height: 49px;
-        padding: 0 43px 0 18px;
+        padding: 0 18px 0 18px;
         border: 1px solid #b8dcff;
         border-radius: 9px;
         color: #23345f;
         background: #fff;
         box-shadow: none;
+        text-align: left;
     }
 
     .login-field input:focus {
@@ -79,25 +83,6 @@
     .login-field input::placeholder {
         color: #687694;
         opacity: 1;
-    }
-
-    .login-password-toggle {
-        position: absolute;
-        top: 50%;
-        right: 14px;
-        padding: 0;
-        border: 0;
-        color: #1685e8;
-        background: transparent;
-        box-shadow: none;
-        transform: translateY(-50%);
-    }
-
-    .login-password-toggle:hover {
-        color: #0874cf;
-        background: transparent;
-        box-shadow: none;
-        transform: translateY(-50%);
     }
 
     .login-remember {
@@ -174,13 +159,12 @@
         {% endif %}
         {% endwith %}
         
-        <div class="login-field">
+        <div class="login-field password-field">
             <input type="text" id="email" name="email" value="{{ remembered_email or '' }}" placeholder="Usuario o correo electrónico" aria-label="Usuario o correo electrónico" required>
         </div>
         
         <div class="login-field">
             <input type="password" id="password" name="password" placeholder="Contraseña" aria-label="Contraseña" required>
-            <button type="button" class="login-password-toggle" id="login-password-toggle" aria-label="Mostrar contraseña">ver</button>
         </div>
 
         <div class="form-check login-remember">
@@ -197,14 +181,5 @@
   </div>
 </main>
 <script>
-    const loginPassword = document.getElementById('password');
-    const loginPasswordToggle = document.getElementById('login-password-toggle');
-
-    loginPasswordToggle.addEventListener('click', () => {
-        const isPassword = loginPassword.type === 'password';
-        loginPassword.type = isPassword ? 'text' : 'password';
-        loginPasswordToggle.textContent = isPassword ? 'ocultar' : 'ver';
-        loginPasswordToggle.setAttribute('aria-label', isPassword ? 'Ocultar contraseña' : 'Mostrar contraseña');
-    });
 </script>
 {% endblock %}

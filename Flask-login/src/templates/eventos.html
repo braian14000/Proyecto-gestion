@@ -56,6 +56,16 @@
             min-height: 40px;
             white-space: nowrap;
         }
+        .ubicacion-eventos {
+            grid-column: 1 / -1;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 10px;
+            color: #18234d;
+            font-size: .9rem;
+        }
+        .ubicacion-eventos .btn { margin-left: auto; }
         @media (max-width: 900px) {
             .filtros-eventos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
@@ -97,6 +107,15 @@
                     <option value="antiguos" {% if orden_fecha == 'antiguos' %}selected{% endif %}>Más antiguas a más recientes</option>
                 </select>
             </div>
+            <div>
+                <label for="orden_ubicacion">Ordenar por cercanía</label>
+                <select id="orden_ubicacion" name="orden_ubicacion">
+                    <option value="" {% if orden_ubicacion != 'cercanos' %}selected{% endif %}>Orden normal</option>
+                    <option value="cercanos" {% if orden_ubicacion == 'cercanos' %}selected{% endif %}>Más cercanos</option>
+                </select>
+            </div>
+            <input type="hidden" id="latitud-usuario" name="latitud" value="{{ user_latitude or '' }}">
+            <input type="hidden" id="longitud-usuario" name="longitud" value="{{ user_longitude or '' }}">
             <button type="submit" class="btn btn-primary">Filtrar</button>
             <a href="{{ url_for('ver_eventos') }}" class="btn btn-outline-secondary">Limpiar</a>
         </form>
@@ -105,10 +124,18 @@
         <div class="grid-eventos">
             {% for evento in eventos %}
             <div class="tarjeta-evento">
+                {% if evento.imagen %}
+                <img class="imagen-evento" src="{{ url_for('static', filename=evento.imagen) }}" alt="Imagen de {{ evento.titulo }}">
+                {% else %}
+                <div class="imagen-evento imagen-evento-fallback" aria-hidden="true">Sin imagen</div>
+                {% endif %}
                 <h4>{{ evento.titulo }}</h4>
                 <p><strong>Fecha:</strong> {{ evento.fecha }}</p>
                 <p><strong>Horario:</strong> {{ evento.hora or 'No definido' }}</p>
                 <p style="color: #999; font-size: 13px;">{{ evento.lugar }}</p>
+                {% if evento.distancia_km is defined %}
+                <p><strong>Distancia:</strong> {{ evento.distancia_km }} km</p>
+                {% endif %}
                 <p><strong>Cupo:</strong> {{ evento.capacidad_maxima }}</p>
                 {% if evento.finalizado %}
                     <p><strong>Estado:</strong> <span style="color: #198754; font-weight: 600;">Finalizado</span></p>
@@ -154,7 +181,10 @@
         </div>
         {% else %}
         <div class="alert alert-light border text-center py-4" role="status">
-            {% if busqueda or categoria_seleccionada %}
+            {% if orden_ubicacion == 'cercanos' and not user_latitude %}
+            <h4 class="mb-2">Ubicación no disponible</h4>
+            <p class="mb-0 text-muted">Permití el acceso a tu ubicación para ordenar los eventos más cercanos.</p>
+            {% elif busqueda or categoria_seleccionada %}
             <h4 class="mb-2">No hay coincidencias</h4>
             <p class="mb-0 text-muted">No encontramos eventos con los filtros seleccionados.</p>
             {% else %}
@@ -170,4 +200,26 @@
             {% endif %}
         </div>
     </div>
+    <script>
+        const locationData = localStorage.getItem('ubicacion_usuario');
+        const latitudeInput = document.getElementById('latitud-usuario');
+        const longitudeInput = document.getElementById('longitud-usuario');
+        if (locationData && !latitudeInput.value && !longitudeInput.value) {
+            try {
+                const location = JSON.parse(locationData);
+                latitudeInput.value = location.latitud;
+                longitudeInput.value = location.longitud;
+            } catch (error) {
+                localStorage.removeItem('ubicacion_usuario');
+            }
+        }
+        document.getElementById('orden_ubicacion').addEventListener('change', (event) => {
+            if (event.target.value === 'cercanos' && (!latitudeInput.value || !longitudeInput.value)) {
+                alert('No se pudo obtener tu ubicación. Verificá los permisos del navegador.');
+                event.target.value = '';
+                return;
+            }
+            event.target.form.submit();
+        });
+    </script>
 {% endblock %}

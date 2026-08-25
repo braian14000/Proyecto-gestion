@@ -100,7 +100,7 @@
   .btn-validar-qr:hover {
     background: #f5f7f9;
   }
-</smodal-header {
+.modal-header {
     background-color: #e8e8e8;
     color: #2a2a2a;
     border: none;
@@ -236,9 +236,21 @@
         <h6>Funciones de Administrador</h6>
         <div class="admin-actions">
           <a class="btn btn-admin-panel btn-pill shadow-sm" href="{{ url_for('admin_dashboard') }}">Panel Admin</a>
-          <a class="btn btn-gestionar-organizadores btn-pill shadow-sm" href="{{ url_for('gestionar_organizadores') }}">Gestionar Organizadores</a>
+          <a class="btn btn-gestionar-organizadores btn-pill shadow-sm" href="{{ url_for('gestionar_organizadores') }}">
+            Gestionar Organizadores{% if solicitudes_pendientes %} ({{ solicitudes_pendientes }} pendientes){% endif %}
+          </a>
           <a class="btn btn-validar-qr btn-pill shadow-sm" href="{{ url_for('ver_eventos') }}">Validar QR</a>
         </div>
+      </div>
+      {% endif %}
+
+      {% if solicitud_estado == 'pendiente' %}
+      <div class="alert alert-danger text-center mb-0" role="alert">
+        Tu solicitud para ser organizador está a la espera de la aceptación del administrador.
+      </div>
+      {% elif solicitud_estado == 'rechazada' %}
+      <div class="alert alert-danger text-center mb-0" role="alert">
+        Tu solicitud para ser organizador fue rechazada por el administrador.
       </div>
       {% endif %}
 
@@ -256,8 +268,9 @@
 <!-- Modal de Términos y Condiciones -->
 <div class="modal fade" id="terminosModal" tabindex="-1" aria-labelledby="terminosModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-lg">
-    <div/h5>
-        <button type="button" class="btn-closnosModalLabel">Términos y Condiciones de Uso - Sistema de Eventos UTN</h5>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="terminosModalLabel">Términos y Condiciones de Uso - Sistema de Eventos UTN</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
       </div>
       <div class="modal-body">
@@ -295,6 +308,8 @@
           <li>Toda la información personal proporcionada por los usuarios será almacenada de forma segura y codificada.</li>
           <li>Las funciones de administración están protegidas mediante autenticación obligatoria para asegurar que solo personal autorizado gestione los eventos y las listas de inscriptos.</li>
         </ul>
+        
+        
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>

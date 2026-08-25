@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ evento.titulo }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    {% if evento.latitud is not none and evento.longitud is not none %}
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <style>#event-detail-map { height: 380px; border-radius: 8px; margin-top: 12px; }</style>
+    {% endif %}
 </head>
 <body>
     <div class="container">
@@ -15,9 +19,16 @@
         <h2>{{ evento.titulo }}</h2>
         
         <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 30px;">
+            {% if evento.imagen %}
+            <img src="{{ url_for('static', filename=evento.imagen) }}" alt="Imagen de {{ evento.titulo }}" style="width: 100%; max-height: 380px; object-fit: cover; border-radius: 8px; margin-bottom: 18px;">
+            {% endif %}
             <p><strong>📅 Fecha:</strong> {{ evento.fecha }}</p>
             <p><strong>🕒 Horario:</strong> {{ evento.hora }}</p>
             <p><strong>Lugar:</strong> {{ evento.lugar }}</p>
+            {% if evento.latitud is not none and evento.longitud is not none %}
+            <div id="event-detail-map" aria-label="Ubicación del evento en el mapa"></div>
+            <p id="distance-to-event" class="text-muted" style="margin-top: 10px;">Obteniendo tu ubicación para calcular la distancia...</p>
+            {% endif %}
             <p><strong>Capacidad máxima:</strong> {{ evento.capacidad_maxima }}</p>
             <p><strong>Inscritos:</strong> {{ evento.inscritos_count }} / {{ evento.capacidad_maxima }}</p>
             <p><strong>Cupos disponibles:</strong> {{ cupos_disponibles }}</p>
@@ -73,5 +84,51 @@
             </div>
         {% endif %}
     </div>
+    {% if evento.latitud is not none and evento.longitud is not none %}
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const eventPosition = [{{ evento.latitud }}, {{ evento.longitud }}];
+        const eventMap = L.map('event-detail-map').setView(eventPosition, 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(eventMap);
+        L.marker(eventPosition).addTo(eventMap).bindPopup({{ evento.lugar|tojson }}).openPopup();
+
+        const distanceMessage = document.getElementById('distance-to-event');
+        const eventLocation = L.latLng(eventPosition[0], eventPosition[1]);
+        function distanceInKm(firstPoint, secondPoint) {
+            return firstPoint.distanceTo(secondPoint) / 1000;
+        }
+
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition((position) => {
+                const userPosition = [position.coords.latitude, position.coords.longitude];
+                const userLocation = L.latLng(userPosition[0], userPosition[1]);
+                L.circleMarker(userPosition, {
+                    radius: 9,
+                    color: '#0d6efd',
+                    fillColor: '#0d6efd',
+                    fillOpacity: 0.9
+                }).addTo(eventMap).bindPopup('Tu ubicación actual');
+                L.polyline([userPosition, eventPosition], {
+                    color: '#0d6efd',
+                    weight: 3,
+                    dashArray: '8 8'
+                }).addTo(eventMap);
+                eventMap.fitBounds(L.latLngBounds([userPosition, eventPosition]), { padding: [35, 35] });
+                distanceMessage.textContent = `Estás aproximadamente a ${distanceInKm(userLocation, eventLocation).toFixed(1)} km del evento.`;
+            }, () => {
+                distanceMessage.textContent = 'No se pudo obtener tu ubicación. Permití el acceso para ver la distancia al evento.';
+            }, {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 300000
+            });
+        } else {
+            distanceMessage.textContent = 'Tu navegador no permite obtener la ubicación.';
+        }
+    </script>
+    {% endif %}
 </body>
 </html>

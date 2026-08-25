@@ -54,7 +54,7 @@
             color: white !important;
         }
 
-        /* Estilo común para las acciones de las vistas autenticadas. */
+        /* Estilo vistas */
         body:not(.auth-page) .btn,
         body:not(.auth-page) button:not(.btn-close):not(.btn-check),
         body:not(.auth-page) .btn-usuarios,
@@ -144,6 +144,35 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/js/bootstrap.bundle.min.js"
         integrity="sha384-U1DAWAznBHeqEIlVSCgzq+c9gqGAJn5c/t99JyeKa9xxaYpSvHU5awsuZVVFIhvj"
         crossorigin="anonymous"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            if (sessionStorage.getItem('permisos-solicitados')) return;
+            sessionStorage.setItem('permisos-solicitados', 'true');
+
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition((position) => {
+                    localStorage.setItem('ubicacion_usuario', JSON.stringify({
+                        latitud: position.coords.latitude,
+                        longitud: position.coords.longitude
+                    }));
+                }, () => {}, {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 300000
+                });
+            }
+
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia({ video: true })
+                    .then((stream) => stream.getTracks().forEach((track) => track.stop()))
+                    .catch(() => {});
+            }
+
+            if (navigator.storage && navigator.storage.persist) {
+                navigator.storage.persist().catch(() => {});
+            }
+        });
+    </script>
 </body>
 
 </html>

@@ -19,6 +19,18 @@ CREATE TABLE IF NOT EXISTS `user` (
   UNIQUE KEY `uq_user_username` (`username`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS organizer_role_requests (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` INT UNSIGNED NOT NULL,
+  `status` ENUM('pendiente', 'aprobada', 'rechazada') NOT NULL DEFAULT 'pendiente',
+  `requested_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `reviewed_at` DATETIME NULL,
+  `reviewed_by` INT UNSIGNED NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_organizer_requests_user` (`user_id`),
+  KEY `idx_organizer_requests_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS `event` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `titulo` VARCHAR(200) NOT NULL,
@@ -27,6 +39,9 @@ CREATE TABLE IF NOT EXISTS `event` (
   `lugar` VARCHAR(200),
   `capacidad_maxima` INT NOT NULL,
   `finalizado` TINYINT(1) NOT NULL DEFAULT 0,
+  `latitud` DECIMAL(10, 7) DEFAULT NULL,
+  `longitud` DECIMAL(10, 7) DEFAULT NULL,
+  `imagen` VARCHAR(255) DEFAULT NULL,
   `created_by` INT UNSIGNED NULL,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)

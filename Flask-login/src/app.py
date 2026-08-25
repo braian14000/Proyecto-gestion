@@ -7,11 +7,14 @@ from werkzeug.security import generate_password_hash
 import qrcode
 import os
 import random
+import math
 from datetime import datetime, timedelta
 import re
 import smtplib
 from email.mime.text import MIMEText
+import uuid
 from email.mime.multipart import MIMEMultipart
+from werkzeug.utils import secure_filename
 
 from config import config
 from models.ModeUsers import ModelUser
@@ -20,6 +23,9 @@ from certificates import generar_certificado
 
 app = Flask(__name__)
 app.config.from_object(config['development'])
+app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024
+EVENT_IMAGES_DIR = os.path.join(app.static_folder, 'eventos')
+os.makedirs(EVENT_IMAGES_DIR, exist_ok=True)
 
 # Configuración de Gmail para soporte
 GMAIL_USER = "gestioneventocontrasena12@gmail.com"
@@ -47,6 +53,9 @@ def ensure_event_table_has_capacity():
                       `capacidad_maxima` INT NOT NULL DEFAULT 1,
                       `finalizado` TINYINT(1) NOT NULL DEFAULT 0,
                       `categoria` VARCHAR(100) DEFAULT 'General',
+                      `latitud` DECIMAL(10, 7) NULL,
+                      `longitud` DECIMAL(10, 7) NULL,
+                      `imagen` VARCHAR(255) NULL,
                       `created_by` INT UNSIGNED NULL,
                       `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                       PRIMARY KEY (`id`)
@@ -80,11 +89,67 @@ def ensure_event_table_has_capacity():
                 cursor.execute("ALTER TABLE `event` ADD COLUMN `categoria` VARCHAR(100) DEFAULT 'General'")
                 db.connection.commit()
                 print("[INFO] Se agregó la columna categoria a la tabla event.")
+
+            cursor.execute("SHOW COLUMNS FROM `event` LIKE 'latitud'")
+            if cursor.fetchone() is None:
+                cursor.execute("ALTER TABLE `event` ADD COLUMN `latitud` DECIMAL(10, 7) NULL")
+                db.connection.commit()
+                print("[INFO] Se agregó la columna latitud a la tabla event.")
+
+            cursor.execute("SHOW COLUMNS FROM `event` LIKE 'longitud'")
+            if cursor.fetchone() is None:
+                cursor.execute("ALTER TABLE `event` ADD COLUMN `longitud` DECIMAL(10, 7) NULL")
+                db.connection.commit()
+                print("[INFO] Se agregó la columna longitud a la tabla event.")
+
+            cursor.execute("SHOW COLUMNS FROM `event` LIKE 'imagen'")
+            if cursor.fetchone() is None:
+                cursor.execute("ALTER TABLE `event` ADD COLUMN `imagen` VARCHAR(255) NULL")
+                db.connection.commit()
+                print("[INFO] Se agregó la columna imagen a la tabla event.")
     except Exception as ex:
         print(f"[WARN] No se pudo asegurar la estructura de la tabla event: {ex}")
 
 
 ensure_event_table_has_capacity()
+
+def save_event_image(image_file):
+    if not image_file or not image_file.filename:
+        return None
+    allowed_extensions = {'jpg', 'jpeg', 'png', 'webp'}
+    original_name = secure_filename(image_file.filename)
+    extension = original_name.rsplit('.', 1)[-1].lower() if '.' in original_name else ''
+    if extension not in allowed_extensions:
+        raise ValueError('La imagen debe ser JPG, PNG o WEBP.')
+    filename = f'{uuid.uuid4().hex}.{extension}'
+    image_file.save(os.path.join(EVENT_IMAGES_DIR, filename))
+    return f'eventos/{filename}'
+
+def ensure_organizer_requests_table():
+    try:
+        with app.app_context():
+            cursor = db.connection.cursor()
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS organizer_role_requests (
+                  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                  user_id INT UNSIGNED NOT NULL,
+                  status ENUM('pendiente', 'aprobada', 'rechazada') NOT NULL DEFAULT 'pendiente',
+                  requested_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  reviewed_at DATETIME NULL,
+                  reviewed_by INT UNSIGNED NULL,
+                  PRIMARY KEY (id),
+                  KEY idx_organizer_requests_user (user_id),
+                  KEY idx_organizer_requests_status (status)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+                """
+            )
+            db.connection.commit()
+    except Exception as ex:
+        print(f"[WARN] No se pudo asegurar la tabla de solicitudes: {ex}")
+
+
+ensure_organizer_requests_table()
 csrf = CSRFProtect(app)
 login_manager_app = LoginManager(app)
 login_manager_app.login_view = 'login'
@@ -119,10 +184,52 @@ def get_current_user_dni_username():
             print(f"[ERROR] get_current_user_dni_username: {ex}")
     return dni, username
 
+def get_organizer_request_status(user_id):
+    try:
+        cursor = db.connection.cursor()
+        cursor.execute(
+            "SELECT status FROM organizer_role_requests WHERE user_id = %s ORDER BY id DESC LIMIT 1",
+            (user_id,)
+        )
+        row = cursor.fetchone()
+        return row[0] if row else None
+    except Exception as ex:
+        print(f"[ERROR] get_organizer_request_status: {ex}")
+        return None
+
+def get_pending_organizer_requests():
+    try:
+        cursor = db.connection.cursor()
+        cursor.execute(
+            """
+            SELECT r.id, r.user_id, u.username, u.email, u.dni, u.telefono, r.requested_at
+            FROM organizer_role_requests r
+            INNER JOIN `user` u ON u.id = r.user_id
+            WHERE r.status = 'pendiente'
+            ORDER BY r.requested_at ASC, r.id ASC
+            """
+        )
+        rows = cursor.fetchall()
+        return [
+            {
+                'id': row[0],
+                'user_id': row[1],
+                'username': row[2],
+                'email': row[3],
+                'dni': row[4],
+                'telefono': row[5],
+                'requested_at': row[6].strftime('%d/%m/%Y %H:%M') if hasattr(row[6], 'strftime') else str(row[6])
+            }
+            for row in rows
+        ]
+    except Exception as ex:
+        print(f"[ERROR] get_pending_organizer_requests: {ex}")
+        return []
+
 def get_events_from_db():
     try:
         cursor = db.connection.cursor()
-        cursor.execute("SELECT id, titulo, fecha, hora, descripcion, lugar, capacidad_maxima, finalizado, categoria FROM event ORDER BY fecha, hora")
+        cursor.execute("SELECT id, titulo, fecha, hora, descripcion, lugar, capacidad_maxima, finalizado, categoria, latitud, longitud, imagen FROM event ORDER BY fecha, hora")
         rows = cursor.fetchall()
         events = []
         for r in rows:
@@ -136,11 +243,27 @@ def get_events_from_db():
                 'lugar': r[5],
                 'capacidad_maxima': int(r[6]) if r[6] is not None else 0,
                 'finalizado': bool(r[7]),
-                'categoria': r[8] or 'General'
+                'categoria': r[8] or 'General',
+                'latitud': float(r[9]) if r[9] is not None else None,
+                'longitud': float(r[10]) if r[10] is not None else None,
+                'imagen': r[11]
             })
         return events
     except Exception:
         return []
+
+def distance_in_km(latitude_a, longitude_a, latitude_b, longitude_b):
+    earth_radius_km = 6371
+    latitude_a, longitude_a, latitude_b, longitude_b = map(
+        math.radians, (latitude_a, longitude_a, latitude_b, longitude_b)
+    )
+    delta_latitude = latitude_b - latitude_a
+    delta_longitude = longitude_b - longitude_a
+    value = (
+        math.sin(delta_latitude / 2) ** 2
+        + math.cos(latitude_a) * math.cos(latitude_b) * math.sin(delta_longitude / 2) ** 2
+    )
+    return earth_radius_km * 2 * math.asin(math.sqrt(value))
 
 
 def get_events_created_by_user(db_connection, user_id):
@@ -179,7 +302,7 @@ def get_event_from_db(event_id):
         cursor = db.connection.cursor()
         cursor.execute(
             """
-            SELECT e.id, e.titulo, e.fecha, e.hora, e.descripcion, e.lugar, e.capacidad_maxima, e.finalizado, e.categoria, e.created_by,
+            SELECT e.id, e.titulo, e.fecha, e.hora, e.descripcion, e.lugar, e.capacidad_maxima, e.finalizado, e.categoria, e.created_by, e.latitud, e.longitud, e.imagen,
                    (SELECT COUNT(*) FROM registrados r WHERE r.evento_id = e.id) AS inscritos_count
             FROM event e
             WHERE e.id = %s
@@ -201,7 +324,10 @@ def get_event_from_db(event_id):
             'finalizado': bool(r[7]),
             'categoria': r[8] or 'General',
             'created_by': r[9],
-            'inscritos_count': int(r[10]) if r[10] is not None else 0
+            'latitud': float(r[10]) if r[10] is not None else None,
+            'longitud': float(r[11]) if r[11] is not None else None,
+            'imagen': r[12],
+            'inscritos_count': int(r[13]) if r[13] is not None else 0
         }
     except Exception:
         return None
@@ -401,7 +527,7 @@ def login():
         remember_me = request.form.get('remember_me') == '1'
 
         if email == 'admin' and password == 'admin':
-            admin_user = User(0, 'admin', 'admin', None, '')
+            admin_user = User(0, 'admin', 'admin', None, '', '', 'admin')
             login_user(admin_user)
             response = redirect(url_for('home'))
             if remember_me:
@@ -472,11 +598,20 @@ def register():
 
             cursor.execute(
                 "INSERT INTO `user` (username, password, telefono, email, dni, rol) VALUES (%s, %s, %s, %s, %s, %s)",
-                (username, hashed_password, telefono, email, dni, rol)
+                (username, hashed_password, telefono, email, dni, 'estudiante')
             )
+            user_id = cursor.lastrowid
+            if rol == 'organizador':
+                cursor.execute(
+                    "INSERT INTO organizer_role_requests (user_id, status) VALUES (%s, 'pendiente')",
+                    (user_id,)
+                )
             db.connection.commit()
 
-            flash("¡Registro exitoso! Ya puedes iniciar sesión.", "success")
+            if rol == 'organizador':
+                flash("¡Registro exitoso! Tu solicitud para ser organizador quedó pendiente de aprobación.", "success")
+            else:
+                flash("¡Registro exitoso! Ya puedes iniciar sesión.", "success")
             return redirect(url_for('login'))
 
         except Exception:
@@ -623,12 +758,25 @@ def admin_dashboard():
         hora = request.form.get('hora', '').strip()
         descripcion = request.form.get('descripcion', '').strip()
         lugar = request.form.get('lugar', '').strip()
+        latitud = request.form.get('latitud', '').strip()
+        longitud = request.form.get('longitud', '').strip()
         capacidad_maxima = request.form.get('capacidad_maxima', '').strip()
         categoria = request.form.get('categoria', 'General').strip()
+        try:
+            imagen = save_event_image(request.files.get('imagen'))
+        except ValueError as ex:
+            flash(str(ex), 'error')
+            return render_template('admin.html')
 
         try:
             capacidad = int(capacidad_maxima)
             if not titulo or not fecha or not hora or not descripcion or not lugar or capacidad <= 0:
+                raise ValueError
+            latitud = float(latitud) if latitud else None
+            longitud = float(longitud) if longitud else None
+            if latitud is not None and not -90 <= latitud <= 90:
+                raise ValueError
+            if longitud is not None and not -180 <= longitud <= 180:
                 raise ValueError
         except ValueError:
             flash('Completá fecha, horario, título, lugar, descripción y una capacidad máxima válida.', 'error')
@@ -639,19 +787,19 @@ def admin_dashboard():
             user_id = getattr(current_user, 'id', None)
             if user_id in (None, 0):
                 cursor.execute(
-                    "INSERT INTO event (titulo, fecha, hora, descripcion, lugar, capacidad_maxima, categoria) VALUES (%s, %s, %s, %s, %s, %s, %s)",
-                    (titulo, fecha, hora, descripcion, lugar, capacidad, categoria)
+                    "INSERT INTO event (titulo, fecha, hora, descripcion, lugar, capacidad_maxima, categoria, latitud, longitud, imagen) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                    (titulo, fecha, hora, descripcion, lugar, capacidad, categoria, latitud, longitud, imagen)
                 )
             else:
                 try:
                     cursor.execute(
-                        "INSERT INTO event (titulo, fecha, hora, descripcion, lugar, capacidad_maxima, categoria, created_by) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
-                        (titulo, fecha, hora, descripcion, lugar, capacidad, categoria, user_id)
+                        "INSERT INTO event (titulo, fecha, hora, descripcion, lugar, capacidad_maxima, categoria, latitud, longitud, imagen, created_by) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                        (titulo, fecha, hora, descripcion, lugar, capacidad, categoria, latitud, longitud, imagen, user_id)
                     )
                 except Exception:
                     cursor.execute(
-                        "INSERT INTO event (titulo, fecha, hora, descripcion, lugar, capacidad_maxima, categoria) VALUES (%s, %s, %s, %s, %s, %s, %s)",
-                        (titulo, fecha, hora, descripcion, lugar, capacidad, categoria)
+                        "INSERT INTO event (titulo, fecha, hora, descripcion, lugar, capacidad_maxima, categoria, latitud, longitud, imagen) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                        (titulo, fecha, hora, descripcion, lugar, capacidad, categoria, latitud, longitud, imagen)
                     )
             db.connection.commit()
         except Exception as ex:
@@ -675,12 +823,25 @@ def crear_evento_organizador():
         hora = request.form.get('hora', '').strip()
         descripcion = request.form.get('descripcion', '').strip()
         lugar = request.form.get('lugar', '').strip()
+        latitud = request.form.get('latitud', '').strip()
+        longitud = request.form.get('longitud', '').strip()
         capacidad_maxima = request.form.get('capacidad_maxima', '').strip()
         categoria = request.form.get('categoria', 'General').strip()
+        try:
+            imagen = save_event_image(request.files.get('imagen'))
+        except ValueError as ex:
+            flash(str(ex), 'error')
+            return render_template('crear_evento_organizador.html')
 
         try:
             capacidad = int(capacidad_maxima)
             if not titulo or not fecha or not hora or not descripcion or not lugar or capacidad <= 0:
+                raise ValueError
+            latitud = float(latitud) if latitud else None
+            longitud = float(longitud) if longitud else None
+            if latitud is not None and not -90 <= latitud <= 90:
+                raise ValueError
+            if longitud is not None and not -180 <= longitud <= 180:
                 raise ValueError
         except ValueError:
             flash('Completá fecha, horario, lugar, descripción y una capacidad máxima válida.', 'error')
@@ -691,19 +852,19 @@ def crear_evento_organizador():
             user_id = getattr(current_user, 'id', None)
             if user_id in (None, 0):
                 cursor.execute(
-                    "INSERT INTO event (titulo, fecha, hora, descripcion, lugar, capacidad_maxima, categoria) VALUES (%s, %s, %s, %s, %s, %s, %s)",
-                    (titulo, fecha, hora, descripcion, lugar, capacidad, categoria)
+                    "INSERT INTO event (titulo, fecha, hora, descripcion, lugar, capacidad_maxima, categoria, latitud, longitud, imagen) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                    (titulo, fecha, hora, descripcion, lugar, capacidad, categoria, latitud, longitud, imagen)
                 )
             else:
                 try:
                     cursor.execute(
-                        "INSERT INTO event (titulo, fecha, hora, descripcion, lugar, capacidad_maxima, categoria, created_by) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
-                        (titulo, fecha, hora, descripcion, lugar, capacidad, categoria, user_id)
+                        "INSERT INTO event (titulo, fecha, hora, descripcion, lugar, capacidad_maxima, categoria, latitud, longitud, imagen, created_by) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                        (titulo, fecha, hora, descripcion, lugar, capacidad, categoria, latitud, longitud, imagen, user_id)
                     )
                 except Exception:
                     cursor.execute(
-                        "INSERT INTO event (titulo, fecha, hora, descripcion, lugar, capacidad_maxima, categoria) VALUES (%s, %s, %s, %s, %s, %s, %s)",
-                        (titulo, fecha, hora, descripcion, lugar, capacidad, categoria)
+                        "INSERT INTO event (titulo, fecha, hora, descripcion, lugar, capacidad_maxima, categoria, latitud, longitud, imagen) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                        (titulo, fecha, hora, descripcion, lugar, capacidad, categoria, latitud, longitud, imagen)
                     )
             db.connection.commit()
             flash('Evento creado correctamente.', 'success')
@@ -717,26 +878,55 @@ def crear_evento_organizador():
 @app.route('/gestionar-organizadores', methods=['GET', 'POST'])
 @login_required
 def gestionar_organizadores():
-    if not current_user.is_authenticated or getattr(current_user, 'email', '') != 'admin':
+    if not current_user.is_authenticated or getattr(current_user, 'rol', '') != 'admin':
         return redirect(url_for('login'))
 
     if request.method == 'POST':
+        request_id = request.form.get('request_id')
+        action = request.form.get('action')
         user_id = request.form.get('user_id')
         nuevo_rol = request.form.get('rol')
 
-        if user_id and nuevo_rol in ('organizador', 'estudiante'):
-            try:
+        try:
+            cursor = db.connection.cursor()
+            if request_id and action in ('aprobar', 'rechazar'):
+                cursor.execute(
+                    "SELECT user_id FROM organizer_role_requests WHERE id = %s AND status = 'pendiente' FOR UPDATE",
+                    (request_id,)
+                )
+                request_row = cursor.fetchone()
+                if not request_row:
+                    db.connection.rollback()
+                    flash('La solicitud ya fue procesada o no existe.', 'error')
+                else:
+                    requested_user_id = request_row[0]
+                    new_status = 'aprobada' if action == 'aprobar' else 'rechazada'
+                    new_role = 'organizador' if action == 'aprobar' else 'estudiante'
+                    cursor.execute("UPDATE `user` SET rol = %s WHERE id = %s", (new_role, requested_user_id))
+                    cursor.execute(
+                        "UPDATE organizer_role_requests SET status = %s, reviewed_at = NOW(), reviewed_by = %s WHERE id = %s",
+                        (new_status, current_user.id, request_id)
+                    )
+                    db.connection.commit()
+                    flash(
+                        'Solicitud aprobada. El usuario ya tiene privilegios de organizador.' if action == 'aprobar'
+                        else 'Solicitud rechazada. El usuario conservará los privilegios de usuario.',
+                        'success'
+                    )
+            elif user_id and nuevo_rol in ('organizador', 'estudiante'):
                 ModelUser.update_rol(db, user_id, nuevo_rol)
                 flash('Rol actualizado correctamente.', 'success')
-            except Exception as ex:
-                flash(f'No se pudo actualizar el rol: {ex}', 'error')
-        else:
-            flash('No se recibió un cambio de rol válido.', 'error')
+            else:
+                flash('No se recibió una acción válida.', 'error')
+        except Exception as ex:
+            db.connection.rollback()
+            flash(f'No se pudo procesar la solicitud: {ex}', 'error')
 
         return redirect(url_for('gestionar_organizadores'))
 
     usuarios = ModelUser.get_all_users(db)
-    return render_template('admin_organizadores.html', usuarios=usuarios)
+    solicitudes = get_pending_organizer_requests()
+    return render_template('admin_organizadores.html', usuarios=usuarios, solicitudes=solicitudes)
 
 @app.route('/admin/borrar-historial', methods=['POST'])
 @login_required
@@ -931,7 +1121,18 @@ def eliminar_evento(evento_id):
 @login_required
 def home():
     usuario_display = getattr(current_user, 'username', None) or getattr(current_user, 'email', '')
-    return render_template('menu.html', usuario=usuario_display)
+    solicitud_estado = None
+    solicitudes_pendientes = 0
+    if getattr(current_user, 'rol', '') == 'estudiante' and getattr(current_user, 'id', 0) != 0:
+        solicitud_estado = get_organizer_request_status(current_user.id)
+    elif getattr(current_user, 'rol', '') == 'admin':
+        solicitudes_pendientes = len(get_pending_organizer_requests())
+    return render_template(
+        'menu.html',
+        usuario=usuario_display,
+        solicitud_estado=solicitud_estado,
+        solicitudes_pendientes=solicitudes_pendientes
+    )
 
 @app.route('/eventos')
 @login_required
@@ -940,6 +1141,20 @@ def ver_eventos():
     busqueda = request.args.get('busqueda', '').strip()
     categoria_seleccionada = request.args.get('categoria', '').strip()
     orden_fecha = request.args.get('orden_fecha', 'recientes').strip()
+    orden_ubicacion = request.args.get('orden_ubicacion', '').strip()
+    user_latitude = request.args.get('latitud', '').strip()
+    user_longitude = request.args.get('longitud', '').strip()
+    try:
+        radius_km = min(max(float(request.args.get('radio', '10')), 1), 100)
+    except ValueError:
+        radius_km = 10
+
+    try:
+        user_latitude = float(user_latitude) if user_latitude else None
+        user_longitude = float(user_longitude) if user_longitude else None
+    except ValueError:
+        user_latitude = None
+        user_longitude = None
 
     if busqueda:
         busqueda_normalizada = busqueda.casefold()
@@ -954,10 +1169,26 @@ def ver_eventos():
             if evento.get('categoria', 'General') == categoria_seleccionada
         ]
 
-    eventos.sort(
-        key=lambda evento: (evento.get('fecha', ''), evento.get('hora', '')),
-        reverse=orden_fecha != 'antiguos'
-    )
+    if orden_ubicacion == 'cercanos' and user_latitude is not None and user_longitude is not None:
+        eventos_cercanos = []
+        for evento in eventos:
+            if evento['latitud'] is None or evento['longitud'] is None:
+                continue
+            distancia = distance_in_km(
+                user_latitude, user_longitude, evento['latitud'], evento['longitud']
+            )
+            if distancia <= radius_km:
+                evento['distancia_km'] = round(distancia, 1)
+                eventos_cercanos.append(evento)
+        eventos = eventos_cercanos
+
+    if orden_ubicacion == 'cercanos' and user_latitude is not None and user_longitude is not None:
+        eventos.sort(key=lambda evento: evento.get('distancia_km', float('inf')))
+    else:
+        eventos.sort(
+            key=lambda evento: (evento.get('fecha', ''), evento.get('hora', '')),
+            reverse=orden_fecha != 'antiguos'
+        )
 
     categorias = sorted({
         evento.get('categoria', 'General')
@@ -973,7 +1204,11 @@ def ver_eventos():
         categorias=categorias,
         busqueda=busqueda,
         categoria_seleccionada=categoria_seleccionada,
-        orden_fecha=orden_fecha
+        orden_fecha=orden_fecha,
+        orden_ubicacion=orden_ubicacion,
+        user_latitude=user_latitude,
+        user_longitude=user_longitude,
+        radius_km=radius_km
     )
 
 @app.route('/evento/<int:evento_id>')
