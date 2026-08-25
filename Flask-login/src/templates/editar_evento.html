@@ -5,10 +5,48 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Editar Evento</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <style>
+        body { background: #f6f8fc; color: #18234d; }
+        .edit-event-card { max-width: 920px; margin: 28px auto; padding: 28px 34px 0; border: 1px solid #e4e8f1; border-radius: 10px; background: #fff; box-shadow: 0 12px 35px rgba(27, 48, 95, .08); }
+        .edit-event-heading { display: flex; align-items: center; gap: 14px; padding-bottom: 20px; border-bottom: 1px solid #e5e8ef; }
+        .edit-event-heading-icon { color: #2785f5; font-size: 2.2rem; line-height: 1; }
+        .edit-event-heading h1 { margin: 0; color: #18234d; font-size: 1.55rem; font-weight: 800; }
+        .edit-event-heading p { margin: 3px 0 0; color: #65718c; font-size: .85rem; }
+        .edit-event-form { display: grid; gap: 16px; padding: 24px 0 26px; }
+        .edit-event-form input, .edit-event-form select, .edit-event-form textarea { width: 100%; min-height: 42px; box-sizing: border-box; margin: 0; border: 1px solid #dfe4ed; border-radius: 6px; padding: 10px 12px; color: #27375c; background: #fff; font-size: .84rem; }
+        .edit-event-form textarea { min-height: 112px; resize: vertical; }
+        .edit-event-form input:focus, .edit-event-form select:focus, .edit-event-form textarea:focus { border-color: #2785f5; box-shadow: 0 0 0 3px rgba(39, 133, 245, .12); outline: none; }
+        .edit-event-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 22px; }
+        .form-label { display: block; margin-bottom: 7px; color: #314266; font-weight: 700; font-size: .76rem; }
+        .event-map { height: 290px; border: 1px solid #dfe4ed; border-radius: 7px; overflow: hidden; }
+        .map-help { display: block; margin-top: 6px; color: #74809a; font-size: .72rem; }
+        .current-image { width: 100%; max-height: 180px; object-fit: cover; border-radius: 7px; margin-bottom: 8px; }
+        .image-upload { display: flex; align-items: center; justify-content: center; min-height: 72px; border: 1px dashed #cfd7e5; border-radius: 7px; color: #71809d; background: #fbfcfe; font-size: .78rem; cursor: pointer; }
+        .image-upload:hover { border-color: #2785f5; background: #f6faff; }
+        .image-upload input { display: none; }
+        .edit-event-actions { display: flex; justify-content: flex-end; gap: 10px; margin: 0 -34px; padding: 16px 34px; border-top: 1px solid #e7eaf0; background: #fbfcfe; }
+        .edit-event-actions a, .edit-event-actions button { min-height: 38px; margin: 0; padding: 9px 18px; border-radius: 6px; font-size: .8rem; font-weight: 700; }
+        .edit-event-actions a { border: 1px solid #dfe4ed; color: #52617c; background: #fff; }
+        .edit-event-actions button { border: 1px solid #2785f5; color: #fff; background: #2785f5; }
+        .edit-event-actions a:hover, .edit-event-actions button:hover { transform: none; }
+        @media (max-width: 680px) {
+            .edit-event-card { width: calc(100% - 24px); margin: 12px auto; padding: 22px 16px 0; }
+            .edit-event-grid { grid-template-columns: 1fr; gap: 16px; }
+            .edit-event-actions { margin: 0 -16px; padding: 14px 16px; }
+            .edit-event-actions a, .edit-event-actions button { flex: 1; }
+        }
+    </style>
 </head>
 <body>
-    <div class="container">
-        <h2>Editar Evento</h2>
+    <div class="container edit-event-card">
+        <div class="edit-event-heading">
+            <span class="edit-event-heading-icon" aria-hidden="true">🗓️</span>
+            <div>
+                <h1>Editar Evento</h1>
+                <p>Editá la información de tu evento.</p>
+            </div>
+        </div>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
@@ -20,42 +58,82 @@
         {% endif %}
         {% endwith %}
 
-        <form method="post">
+        <form method="post" enctype="multipart/form-data" class="edit-event-form">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            
-            <div class="form-group">
-                <input type="text" name="titulo" placeholder="Título" value="{{ evento.titulo }}" required>
+                        <div class="form-group">
+                <label class="form-label" for="titulo">Título del evento</label>
+                                <input type="text" id="titulo" name="titulo" placeholder="Título" value="{{ evento.titulo }}" required>
             </div>
-            
-            <div class="form-group">
-                <input type="date" name="fecha" value="{{ evento.fecha }}" required>
+                        <div class="edit-event-grid">
+                            <div class="form-group">
+                                <label class="form-label" for="fecha">Fecha</label>
+                                <input type="date" id="fecha" name="fecha" value="{{ evento.fecha }}" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="hora">Horario</label>
+                                <input type="time" id="hora" name="hora" value="{{ evento.hora }}" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="lugar">Ubicación</label>
+                                <input type="text" id="lugar" name="lugar" placeholder="Ubicación" value="{{ evento.lugar }}" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="capacidad_maxima">Capacidad máxima</label>
+                                <input type="number" id="capacidad_maxima" name="capacidad_maxima" min="1" value="{{ evento.capacidad_maxima }}" placeholder="Capacidad máxima" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="categoria">Categoría</label>
+                                <select id="categoria" name="categoria">
+                                        {% for category in ['General', 'Música', 'Deportes', 'Académico', 'Cultural'] %}
+                                        <option value="{{ category }}" {% if (evento.categoria or 'General') == category %}selected{% endif %}>{{ category }}</option>
+                                        {% endfor %}
+                                </select>
+                            </div>
             </div>
-
             <div class="form-group">
-                <input type="time" name="hora" value="{{ evento.hora }}" required>
-            </div>
-            
-            <div class="form-group">
-                <input type="text" name="lugar" placeholder="Ubicación" value="{{ evento.lugar }}" required>
-            </div>
-
-            <div class="form-group">
-                <input type="number" name="capacidad_maxima" min="1" value="{{ evento.capacidad_maxima }}" placeholder="Capacidad máxima" required>
+                <label class="form-label">Seleccionar ubicación en el mapa</label>
+                <input type="hidden" name="latitud" value="{{ evento.latitud or '' }}">
+                <input type="hidden" name="longitud" value="{{ evento.longitud or '' }}">
+                <div id="event-map" class="event-map"></div>
+                <small class="map-help">Hacé clic para cambiar la ubicación del evento.</small>
             </div>
             <div class="form-group">
-                <input type="text" name="categoria" placeholder="Categoria" value="{{ evento.categoria or 'General' }}">
-            </div>            
-            <div class="form-group">
+                <label class="form-label" for="descripcion">Descripción</label>
                 <textarea name="descripcion" placeholder="Descripción" rows="5" required>{{ evento.descripcion }}</textarea>
             </div>
-            
-            <button type="submit">Guardar cambios</button>
+            <div class="form-group">
+                <label class="form-label" for="imagen">Imagen del evento (opcional)</label>
+                {% if evento.imagen %}<img class="current-image" src="{{ url_for('static', filename=evento.imagen) }}" alt="Imagen actual de {{ evento.titulo }}">{% endif %}
+                <label class="image-upload" for="imagen">Seleccioná una imagen nueva (JPG, PNG o WEBP, máximo 5 MB)<input type="file" name="imagen" id="imagen" accept="image/jpeg,image/png,image/webp"></label>
+            </div>
+            <div class="edit-event-actions">
+                <a href="{{ url_for('ver_eventos') }}">Cancelar</a>
+                <button type="submit">Guardar cambios</button>
+            </div>
         </form>
 
         <div class="enlaces">
-            <a href="{{ url_for('ver_eventos') }}" style="margin-right: 20px;">← Volver a eventos</a>
-            <a href="/logout">Cerrar sesión</a>
         </div>
     </div>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const latitudeInput = document.querySelector('[name="latitud"]');
+        const longitudeInput = document.querySelector('[name="longitud"]');
+        const defaultPosition = [-31.42497, -62.08404];
+        const savedPosition = [parseFloat(latitudeInput.value), parseFloat(longitudeInput.value)];
+        const initialPosition = savedPosition.every(Number.isFinite) ? savedPosition : defaultPosition;
+        const eventMap = L.map('event-map').setView(initialPosition, savedPosition.every(Number.isFinite) ? 15 : 12);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(eventMap);
+        let eventMarker = savedPosition.every(Number.isFinite) ? L.marker(initialPosition).addTo(eventMap) : null;
+        eventMap.on('click', (mapEvent) => {
+            if (eventMarker) eventMarker.setLatLng(mapEvent.latlng);
+            else eventMarker = L.marker(mapEvent.latlng).addTo(eventMap);
+            latitudeInput.value = mapEvent.latlng.lat.toFixed(7);
+            longitudeInput.value = mapEvent.latlng.lng.toFixed(7);
+        });
+    </script>
 </body>
 </html>

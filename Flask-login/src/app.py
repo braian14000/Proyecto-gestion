@@ -1054,6 +1054,8 @@ def editar_evento(evento_id):
         hora = request.form.get('hora', '').strip()
         descripcion = request.form.get('descripcion', '').strip()
         lugar = request.form.get('lugar', '').strip()
+        latitud = request.form.get('latitud', '').strip()
+        longitud = request.form.get('longitud', '').strip()
         capacidad_maxima = request.form.get('capacidad_maxima', '').strip()
         categoria = request.form.get('categoria', 'General').strip()
 
@@ -1061,15 +1063,27 @@ def editar_evento(evento_id):
             capacidad = int(capacidad_maxima)
             if not titulo or not fecha or not hora or not descripcion or not lugar or capacidad <= 0:
                 raise ValueError
+            latitud = float(latitud) if latitud else None
+            longitud = float(longitud) if longitud else None
+            if latitud is not None and not -90 <= latitud <= 90:
+                raise ValueError
+            if longitud is not None and not -180 <= longitud <= 180:
+                raise ValueError
         except ValueError:
             flash('La fecha, horario, descripción, lugar y capacidad máxima son obligatorios.', 'error')
             return render_template('editar_evento.html', evento=evento)
 
         try:
+            imagen = save_event_image(request.files.get('imagen')) or evento.get('imagen')
+        except ValueError as ex:
+            flash(str(ex), 'error')
+            return render_template('editar_evento.html', evento=evento)
+
+        try:
             cursor = db.connection.cursor()
             cursor.execute(
-                "UPDATE event SET titulo = %s, fecha = %s, hora = %s, descripcion = %s, lugar = %s, capacidad_maxima = %s, categoria = %s WHERE id = %s",
-                (titulo, fecha, hora, descripcion, lugar, capacidad, categoria, evento_id)
+                "UPDATE event SET titulo = %s, fecha = %s, hora = %s, descripcion = %s, lugar = %s, capacidad_maxima = %s, categoria = %s, latitud = %s, longitud = %s, imagen = %s WHERE id = %s",
+                (titulo, fecha, hora, descripcion, lugar, capacidad, categoria, latitud, longitud, imagen, evento_id)
             )
             db.connection.commit()
             flash("Evento actualizado exitosamente.", "success")
