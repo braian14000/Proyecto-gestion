@@ -140,6 +140,225 @@
 .terminos-link:hover {
   color: #495057;
 }
+
+/* Estilos para perfil de usuario */
+.user-profile-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  cursor: pointer;
+  padding: 10px 16px;
+  border-radius: 12px;
+  transition: background-color 0.3s ease;
+  width: fit-content;
+  margin: 0 auto 15px;
+}
+
+.user-profile-header:hover {
+  background-color: #f0f0f0;
+}
+
+.user-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0d6efd 0%, #6c63ff 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 20px;
+  font-weight: bold;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.user-name {
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 15px;
+}
+
+.user-role-badge {
+  font-size: 11px;
+}
+
+.dropdown-arrow {
+  font-size: 12px;
+  transition: transform 0.3s ease;
+  color: #666;
+}
+
+.user-profile-header:hover .dropdown-arrow {
+  transform: rotate(180deg);
+}
+
+/* Modal de perfil */
+.profile-modal {
+  border-radius: 16px;
+  border: none;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+}
+
+.profile-modal .modal-header {
+  border-bottom: 2px solid #f0f0f0;
+  padding: 20px;
+}
+
+.profile-modal .modal-header h5 {
+  font-weight: 700;
+  color: #2c3e50;
+  margin: 0;
+}
+
+.profile-modal .modal-body {
+  padding: 25px;
+}
+
+.profile-section {
+  margin-bottom: 25px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.profile-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.profile-section h6 {
+  font-weight: 700;
+  color: #2c3e50;
+  margin-bottom: 12px;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.profile-avatar-container {
+  text-align: center;
+  margin-bottom: 15px;
+}
+
+.profile-avatar-large {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0d6efd 0%, #6c63ff 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 36px;
+  margin: 0 auto 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.profile-edit-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 2px solid #e9ecef;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: border-color 0.3s ease;
+}
+
+.profile-edit-input:focus {
+  outline: none;
+  border-color: #0d6efd;
+  box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.1);
+}
+
+.profile-file-input {
+  display: none;
+}
+
+.profile-upload-btn {
+  background: #f0f0f0;
+  border: 2px dashed #0d6efd;
+  border-radius: 8px;
+  padding: 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.profile-upload-btn:hover {
+  background: #e7f0ff;
+  border-color: #0d6efd;
+}
+
+.profile-upload-btn input {
+  display: none;
+}
+
+.notifications-list {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.notification-item {
+  padding: 12px;
+  border-left: 3px solid #0d6efd;
+  background: #f8f9fa;
+  border-radius: 6px;
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+.notification-item:last-child {
+  margin-bottom: 0;
+}
+
+.notification-sender {
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.notification-subject {
+  color: #666;
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.notification-time {
+  color: #999;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.no-notifications {
+  text-align: center;
+  color: #999;
+  padding: 20px;
+  font-size: 14px;
+}
+
+.profile-modal .modal-footer {
+  border-top: 2px solid #f0f0f0;
+  padding: 15px 25px;
+}
+
+.btn-save-profile {
+  background: #0d6efd;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 600;
+  transition: background 0.3s ease;
+}
+
+.btn-save-profile:hover {
+  background: #0b5ed7;
+  color: white;
+}
 </style>
 {% endblock %}
 
@@ -149,20 +368,26 @@
     <div class="text-center mb-3">
       <img src="{{ url_for('static', filename='img/LogoUTN_Gestion_De_Eventos.png') }}" alt="Logo UTN Gestión de Eventos" style="max-height:150px;">
       <h4 class="mt-2">Gestión de eventos</h4>
-      <p class="text-muted">Bienvenido, {{ usuario }}</p>
-      {% if current_user.rol %}
-      <p class="text-muted">
-        <small>Rol: 
-          {% if current_user.rol == 'admin' %}
-          <span class="badge bg-danger">Administrador</span>
-          {% elif current_user.rol == 'organizador' %}
-          <span class="badge bg-primary">Organizador</span>
-          {% else %}
-          <span class="badge bg-secondary">Estudiante</span>
+      
+      <!-- Perfil de usuario clickeable -->
+      <div class="user-profile-header" data-bs-toggle="modal" data-bs-target="#perfilModal">
+        <div class="user-avatar">{{ usuario[0].upper() }}</div>
+        <div class="user-info">
+          <span class="user-name">{{ usuario }}</span>
+          {% if current_user.rol %}
+            <small class="user-role-badge">
+              {% if current_user.rol == 'admin' %}
+                <span class="badge bg-danger">Administrador</span>
+              {% elif current_user.rol == 'organizador' %}
+                <span class="badge bg-primary">Organizador</span>
+              {% else %}
+                <span class="badge bg-secondary">Estudiante</span>
+              {% endif %}
+            </small>
           {% endif %}
-        </small>
-      </p>
-      {% endif %}
+        </div>
+        <span class="dropdown-arrow">▼</span>
+      </div>
     </div>
 
     <div class="d-grid gap-3">
@@ -177,6 +402,7 @@
           <a class="btn btn-crear-evento btn-pill shadow-sm" href="{{ url_for('crear_evento_organizador') }}">Crear Evento</a>
           <a class="btn btn-mis-eventos btn-pill shadow-sm" href="{{ url_for('eventos_organizador') }}">Mis Eventos</a>
           <a class="btn btn-validar-qr btn-pill shadow-sm" href="{{ url_for('ver_eventos') }}">Validar QR</a>
+          <a class="btn btn-validar-qr btn-pill shadow-sm" data-bs-toggle="modal" data-bs-target="#perfilModal" style="cursor: pointer;">💬 Mis Notificaciones</a>
         </div>
       </div>
       {% endif %}
@@ -253,4 +479,135 @@
     </div>
   </div>
 </div>
+
+<!-- Modal de Perfil de Usuario -->
+<div class="modal fade" id="perfilModal" tabindex="-1" aria-labelledby="perfilModalLabel" aria-hidden="true">
+  <div class="modal-dialog profile-modal">
+    <div class="modal-content profile-modal">
+      <div class="modal-header">
+        <h5 class="modal-title" id="perfilModalLabel">Mi Perfil</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        
+        <!-- Sección Foto de Perfil -->
+        <div class="profile-section">
+          <h6>📸 Foto de Perfil</h6>
+          <div class="profile-avatar-container">
+            <div class="profile-avatar-large">{{ usuario[0].upper() }}</div>
+            <label for="fotoInput" class="profile-upload-btn">
+              <div>📁 Haz clic para cargar foto</div>
+              <input type="file" id="fotoInput" class="profile-file-input" accept="image/*">
+            </label>
+          </div>
+        </div>
+
+        <!-- Sección Cambiar Nombre -->
+        <div class="profile-section">
+          <h6>👤 Cambiar Nombre</h6>
+          <div class="mb-3">
+            <label for="nombreInput" class="form-label" style="font-size: 13px; color: #666;">Nombre Completo</label>
+            <input type="text" class="profile-edit-input" id="nombreInput" value="{{ usuario }}" placeholder="Ingresa tu nombre">
+          </div>
+        </div>
+
+        <!-- Sección Notificaciones de Mensajes -->
+        <div class="profile-section">
+          <h6>💬 Notificaciones de Mensajes</h6>
+          <div class="notifications-list">
+            <!-- Aquí se cargarán las notificaciones dinámicamente -->
+            <div class="no-notifications">
+              📭 No tienes notificaciones nuevas
+            </div>
+          </div>
+        </div>
+
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-save-profile">💾 Guardar Cambios</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Script para funcionalidades del perfil -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Manejo de carga de foto
+  const fotoInput = document.getElementById('fotoInput');
+  if (fotoInput) {
+    fotoInput.addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(event) {
+          // Aquí puedes enviar la foto al servidor
+          console.log('Foto seleccionada:', file.name);
+          alert('Foto de perfil actualizada: ' + file.name);
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+  }
+
+  // Cargar notificaciones cuando se abre el modal
+  const perfilModal = document.getElementById('perfilModal');
+  if (perfilModal) {
+    perfilModal.addEventListener('show.bs.modal', function() {
+      cargarNotificaciones();
+    });
+  }
+
+  // Botón guardar cambios
+  const btnGuardar = document.querySelector('.btn-save-profile');
+  if (btnGuardar) {
+    btnGuardar.addEventListener('click', function() {
+      const nuevoNombre = document.getElementById('nombreInput').value;
+      if (nuevoNombre.trim()) {
+        console.log('Guardando nombre:', nuevoNombre);
+        alert('Cambios guardados correctamente');
+        // Aquí puedes enviar los datos al servidor
+      } else {
+        alert('Por favor ingresa un nombre válido');
+      }
+    });
+  }
+});
+
+// Función para cargar notificaciones desde la API
+function cargarNotificaciones() {
+  const notificationsList = document.querySelector('.notifications-list');
+  if (!notificationsList) return;
+
+  // Mostrar loading
+  notificationsList.innerHTML = '<div class="no-notifications">⏳ Cargando notificaciones...</div>';
+
+  fetch('/api/notificaciones')
+    .then(response => response.json())
+    .then(data => {
+      if (data.success && data.notificaciones && data.notificaciones.length > 0) {
+        notificationsList.innerHTML = '';
+        data.notificaciones.forEach(notif => {
+          const div = document.createElement('div');
+          div.className = 'notification-item';
+          div.innerHTML = `
+            <div class="notification-sender">${notif.remitente}</div>
+            <div class="notification-subject"><strong>${notif.asunto}</strong></div>
+            <div style="color: #555; font-size: 13px; margin-top: 6px;">${notif.mensaje.substring(0, 100)}${notif.mensaje.length > 100 ? '...' : ''}</div>
+            <div class="notification-time">${notif.fecha}</div>
+          `;
+          notificationsList.appendChild(div);
+        });
+      } else {
+        notificationsList.innerHTML = '<div class="no-notifications">📭 No tienes notificaciones nuevas</div>';
+      }
+    })
+    .catch(error => {
+      console.error('Error cargando notificaciones:', error);
+      notificationsList.innerHTML = '<div class="no-notifications">❌ Error al cargar notificaciones</div>';
+    });
+}
+</script>
+
 {% endblock %}

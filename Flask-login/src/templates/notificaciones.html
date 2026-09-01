@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mis Notificaciones</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .notificacion { 
+            background: #f8f9fa; 
+            padding: 15px; 
+            margin-bottom: 15px; 
+            border-radius: 8px; 
+            border-left: 4px solid #0d6efd;
+        }
+        .notificacion.no-leida {
+            background: #e8f4f8;
+            border-left-color: #ff6b6b;
+        }
+        .notificacion .meta {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+        .persona {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .persona-avatar {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            object-fit: cover;
+            flex: 0 0 42px;
+            border: 2px solid #0d6efd;
+        }
+        .persona-avatar.inicial {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #e8efff;
+            color: #04047f;
+            font-size: 17px;
+            font-weight: bold;
+        }
+        .persona-nombre { font-weight: bold; color: #2c3e50; }
+        .notificacion .asunto {
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 8px;
+        }
+        .notificacion .mensaje {
+            color: #444;
+            line-height: 1.6;
+        }
+        .badge {
+            display: inline-block;
+            background: #ff6b6b;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        /* Estilos para respuestas */
+        .respuestas-container {
+            margin-top: 15px;
+            margin-left: 20px;
+            padding-left: 15px;
+            border-left: 3px solid #0d6efd;
+        }
+        
+        .respuesta-item {
+            background: #ffffff;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-radius: 6px;
+            border-left: 3px solid #28a745;
+        }
+        
+        .respuesta-header {
+            font-size: 12px;
+            color: #28a745;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        
+        .respuesta-texto {
+            color: #2c3e50;
+            line-height: 1.5;
+        }
+        
+        /* Formulario para responder */
+        .formulario-respuesta {
+            background: #f0f8ff;
+            padding: 12px;
+            margin-top: 15px;
+            border-radius: 6px;
+            border: 1px solid #0d6efd;
+        }
+        
+        .formulario-respuesta textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            resize: vertical;
+            min-height: 80px;
+        }
+        
+        .formulario-respuesta button {
+            background: #28a745;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-top: 8px;
+        }
+        
+        .formulario-respuesta button:hover {
+            background: #218838;
+        }
+        
+        .btn-secundario {
+            background: #6c757d;
+            color: white;
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .btn-secundario:hover {
+            background: #5a6268;
+        }
+        .chat-conversacion {
+            margin-bottom: 14px;
+            border: 1px solid #d7e0ed;
+            border-radius: 10px;
+            background: #f8fbff;
+            overflow: hidden;
+        }
+        .chat-conversacion summary {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 15px;
+            cursor: pointer;
+            list-style: none;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .chat-conversacion summary::-webkit-details-marker { display: none; }
+        .chat-conversacion[open] summary { border-bottom: 1px solid #d7e0ed; }
+        .chat-flecha { margin-left: auto; font-size: 20px; }
+        .chat-conversacion > .notificacion { margin: 12px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="{{ url_for('home') }}" style="display: inline-block; margin-bottom: 20px; color: #2c3e50;">← Volver al inicio</a>
+        
+        <h2>{% if es_organizador %}Mis Notificaciones{% else %}Respuestas a mis mensajes{% endif %}</h2>
+        
+        {% if no_leidas_count > 0 %}
+            <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #ffc107;">
+                <strong> Tienes {{ no_leidas_count }} mensajes sin leer</strong>
+            </div>
+        {% endif %}
+        
+        {% macro mensaje_card(notif) %}
+                <div class="notificacion {% if not notif.leido %}no-leida{% endif %}">
+                    <div class="persona">
+                        {% if notif.remitente_foto %}
+                            <img class="persona-avatar" src="{{ url_for('static', filename=notif.remitente_foto) }}" alt="Foto de {{ notif.remitente_nombre }}">
+                        {% else %}
+                            <span class="persona-avatar inicial">{{ notif.remitente_nombre[0].upper() }}</span>
+                        {% endif %}
+                        <span class="persona-nombre">{{ notif.remitente_nombre }}</span>
+                    </div>
+                    <div class="meta">
+                        <strong>Evento:</strong> {{ notif.evento_titulo }}
+                        | <strong> Fecha:</strong> {{ notif.created_at }}
+                        {% if es_organizador and not notif.leido %}
+                            <span class="badge">SIN LEER</span>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="asunto">
+                        {{ notif.asunto }}
+                    </div>
+                    
+                    <div class="mensaje">
+                        {{ notif.mensaje }}
+                    </div>
+                    
+                    <!-- Respuestas existentes -->
+                    {% if notif.respuestas %}
+                        <div class="respuestas-container">
+                            <strong style="color: #28a745;">✓ Respuestas:</strong>
+                            {% for respuesta in notif.respuestas %}
+                                <div class="respuesta-item">
+                                    <div class="persona">
+                                        {% if respuesta.autor_foto %}
+                                            <img class="persona-avatar" src="{{ url_for('static', filename=respuesta.autor_foto) }}" alt="Foto de {{ respuesta.autor_nombre }}">
+                                        {% else %}
+                                            <span class="persona-avatar inicial">{{ respuesta.autor_nombre[0].upper() }}</span>
+                                        {% endif %}
+                                        <span class="persona-nombre">{{ respuesta.autor_nombre }}</span>
+                                    </div>
+                                    <div class="respuesta-header">
+                                        {{ respuesta.created_at }}
+                                    </div>
+                                    <div class="respuesta-texto">
+                                        {{ respuesta.respuesta }}
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                    
+                    <!-- Formulario para responder -->
+                    {% if es_organizador %}
+                    <div class="formulario-respuesta">
+                        <strong style="color: #0d6efd;"> Responder a este mensaje:</strong>
+                        <form method="post" action="{{ url_for('responder_mensaje', mensaje_id=notif.id) }}" style="margin-top: 10px;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <textarea name="respuesta" placeholder="Escribe tu respuesta aquí..." required></textarea>
+                            <button type="submit">Enviar Respuesta</button>
+                        </form>
+                    </div>
+                    {% else %}
+                    <div class="formulario-respuesta">
+                        <strong style="color: #0d6efd;">Responder en este chat:</strong>
+                        <form method="post" action="{{ url_for('responder_usuario', mensaje_id=notif.id) }}" style="margin-top: 10px;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <textarea name="respuesta" placeholder="Escribe tu mensaje aquí..." required></textarea>
+                            <button type="submit">Enviar Mensaje</button>
+                        </form>
+                    </div>
+                    {% endif %}
+                    
+                </div>
+        {% endmacro %}
+
+        {% if es_organizador and chats %}
+            {% for chat in chats %}
+                <details class="chat-conversacion"{% if request.args.get('chat')|int == chat.usuario_id %} open{% endif %}>
+                    <summary>
+                        {% if chat.foto %}
+                            <img class="persona-avatar" src="{{ url_for('static', filename=chat.foto) }}" alt="">
+                        {% else %}
+                            <span class="persona-avatar inicial">{{ chat.nombre[0].upper() }}</span>
+                        {% endif %}
+                        <span>Chat con {{ chat.nombre }}</span>
+                        <span class="chat-flecha">⌄</span>
+                    </summary>
+                    {% if chat.usuario_id %}
+                        <form method="post" action="{{ url_for('marcar_chat_leido', usuario_id=chat.usuario_id) }}" style="margin: 10px 15px; text-align: right;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn-secundario">Marcar todo como leído</button>
+                        </form>
+                        <form method="post" action="{{ url_for('eliminar_chat', usuario_id=chat.usuario_id) }}" onsubmit="return confirm('¿Eliminar este chat completo?');" style="margin: 10px 15px; text-align: right;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn-secundario">Eliminar chat</button>
+                        </form>
+                    {% endif %}
+                    {% for notif in chat.mensajes %}
+                        {{ mensaje_card(notif) }}
+                    {% endfor %}
+                </details>
+            {% endfor %}
+        {% elif notificaciones %}
+            {% for notif in notificaciones %}
+                {{ mensaje_card(notif) }}
+            {% endfor %}
+        {% else %}
+            <div style="background: #e8f5e9; padding: 20px; border-radius: 8px; text-align: center; color: #2e7d32;">
+                <p style="margin: 0;">
+                    <strong> No tienes notificaciones</strong><br>
+                    Los mensajes de otros usuarios aparecerán aquí.
+                </p>
+            </div>
+        {% endif %}
+        
+
+    </div>
+</body>
+</html>

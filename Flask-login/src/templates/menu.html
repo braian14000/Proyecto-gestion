@@ -100,6 +100,66 @@
   .btn-validar-qr:hover {
     background: #f5f7f9;
   }
+  .menu-header {
+    position: relative;
+    display: block;
+    width: 100%;
+  }
+  .menu-header > img { display: block; max-width: 100%; height: auto; margin: 0 auto; }
+  .profile-button {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 46px !important;
+    height: 46px !important;
+    min-height: 46px !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 50%;
+    background: #04047f !important;
+    color: #fff !important;
+    font-size: 1.35rem;
+    box-shadow: 0 4px 12px rgba(4, 4, 127, 0.2);
+  }
+  .profile-button:hover { background: #02025c !important; transform: translateY(-1px); }
+  .profile-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 19px;
+    height: 19px;
+    padding: 1px 5px;
+    border-radius: 10px;
+    background: #ff6b6b;
+    color: #fff;
+    font-size: 11px;
+    line-height: 17px;
+  }
+  .profile-notification-dot {
+    position: absolute;
+    top: -3px;
+    right: -3px;
+    width: 13px;
+    height: 13px;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    background: #ff4d5e;
+    box-shadow: 0 1px 5px rgba(0, 0, 0, .25);
+  }
+  .profile-avatar-large {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 84px;
+    height: 84px;
+    border-radius: 50%;
+    background: #e8efff;
+    color: #04047f;
+    font-size: 2rem;
+    font-weight: 700;
+    object-fit: cover;
+  }
+  .profile-form-label { font-weight: 600; color: #333; }
 .modal-header {
     background-color: #e8e8e8;
     color: #2a2a2a;
@@ -190,14 +250,88 @@
     color: white;
     border-bottom: none;
   }
+  .profile-modal-dialog { max-width: 620px; }
+  .profile-modal-content { overflow: hidden; border: 0; border-radius: 18px; }
+  .profile-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 105px;
+    padding: 20px 30px;
+    background: linear-gradient(145deg, #0f4eaa, #1764ce);
+    color: #fff;
+  }
+  .profile-modal-heading { text-align: left; }
+  .profile-modal-heading h5 { margin: 0 0 5px; font-size: 23px; font-weight: 800; letter-spacing: .01em; }
+  .profile-modal-heading p { margin: 0; font-size: 14px; font-weight: 400; }
+  .profile-modal-logo { width: 235px; max-width: 42%; filter: brightness(0) invert(1); }
+  .profile-modal-header .btn-close { filter: brightness(0) invert(1); opacity: 1; align-self: flex-start; margin-top: 2px; }
+  .profile-modal-body { padding: 25px 55px 28px; text-align: center; }
+  .profile-camera {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 115px;
+    height: 115px;
+    margin-bottom: 10px;
+    border: 1.5px solid #1764ff;
+    border-radius: 50%;
+    background: #f1f6ff;
+    color: #3d82eb;
+    font-size: 40px;
+  }
+  .profile-camera img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+  .profile-modal-body h6 { margin: 0 0 14px; color: #202d45; font-size: 20px; font-weight: 800; }
+  .profile-file-label {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: 58px;
+    margin: 0 auto 22px;
+    border: 1px solid #c7daf7;
+    border-radius: 9px;
+    overflow: hidden;
+    background: #fff;
+    color: #69758b;
+    text-align: left;
+    cursor: pointer;
+  }
+  .profile-file-button { display: flex; align-items: center; gap: 10px; min-height: 58px; padding: 0 18px; background: #eff5ff; color: #075ce8; font-weight: 700; font-size: 15px; white-space: nowrap; }
+  .profile-file-icon { font-size: 22px; line-height: 1; }
+  .profile-file-name { padding: 0 16px; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .profile-file-input { display: none; }
+  .profile-notifications-link { display: flex; align-items: center; justify-content: center; gap: 14px; width: 100%; min-height: 55px; border: 2px solid #1764ff !important; border-radius: 9px !important; color: #075ce8 !important; background: #fff !important; font-size: 16px; font-weight: 700; text-decoration: none; }
+  .profile-bell { font-size: 24px; line-height: 1; }
+  .profile-modal-footer { justify-content: flex-end; gap: 12px; padding: 17px 25px; background: #fff; border-top: 1px solid #dfe6ef; }
+  .profile-modal-footer .btn { min-width: 125px; min-height: 46px; border-radius: 9px !important; font-size: 15px; font-weight: 700; }
+  .profile-modal-footer .btn-primary { background: #125bd0 !important; color: #fff !important; border-color: #125bd0 !important; }
+  @media (max-width: 640px) {
+    .profile-modal-header { padding: 24px; }
+    .profile-modal-heading h5 { font-size: 23px; }
+    .profile-modal-heading p { font-size: 14px; }
+    .profile-modal-logo { width: 190px; }
+    .profile-modal-body { padding: 30px 22px; }
+    .profile-file-button { padding: 0 14px; font-size: 14px; }
+    .profile-file-name { padding: 0 12px; font-size: 14px; }
+    .profile-modal-footer { padding: 18px; }
+    .profile-modal-footer .btn { min-width: 125px; }
+  }
 </style>
 {% endblock %}
 
 {% block body %}
 <div class="container">
   <div class="menu-card card shadow-sm p-4">
-    <div class="text-center mb-3">
+    <div class="menu-header text-center mb-3">
       <img src="{{ url_for('static', filename='img/LogoUTN_Gestion_De_Eventos.png') }}" alt="Logo UTN Gestión de Eventos" style="max-height:150px;">
+      <button type="button" class="profile-button" data-bs-toggle="modal" data-bs-target="#perfilModal" aria-label="Abrir perfil y notificaciones" title="Perfil y notificaciones">
+        {% if current_user.foto_perfil %}
+          <img src="{{ url_for('static', filename=current_user.foto_perfil) }}" alt="" style="width: 46px; height: 46px; border-radius: 50%; object-fit: cover;">
+        {% else %}👤{% endif %}
+        {% if notificaciones_sin_leer > 0 %}
+          <span class="profile-notification-dot" aria-label="Tienes notificaciones nuevas" title="Tienes notificaciones nuevas"></span>
+        {% endif %}
+      </button>
       <h4 class="mt-2">Gestión de eventos</h4>
       <p class="text-muted">Bienvenido, {{ usuario }}</p>
       {% if current_user.rol %}
@@ -264,6 +398,58 @@
     </div>
   </div>
 </div>
+
+<!-- Modal de Perfil -->
+<div class="modal fade" id="perfilModal" tabindex="-1" aria-labelledby="perfilModalLabel" aria-hidden="true">
+  <div class="modal-dialog profile-modal-dialog">
+    <div class="modal-content profile-modal-content">
+      <div class="modal-header profile-modal-header">
+        <div class="profile-modal-heading">
+          <h5 id="perfilModalLabel">MI PERFIL</h5>
+          <p>Gestioná tu información personal</p>
+        </div>
+        <img class="profile-modal-logo" src="{{ url_for('static', filename='img/LogoUTN_Gestion_De_Eventos.png') }}" alt="UTN Gestión de eventos">
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <form method="POST" action="{{ url_for('actualizar_perfil') }}" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="modal-body profile-modal-body">
+          <div class="profile-camera">
+            {% if current_user.foto_perfil %}
+              <img src="{{ url_for('static', filename=current_user.foto_perfil) }}" alt="Foto de perfil">
+            {% else %}
+              <span></span>
+            {% endif %}
+          </div>
+          <h6>Foto de perfil</h6>
+          <label for="fotoInput" class="profile-file-label">
+            <span class="profile-file-button"><span class="profile-file-icon"></span> Elegir archivo</span>
+            <span class="profile-file-name" id="profileFileName">Ningún archivo seleccionado</span>
+            <input type="file" id="fotoInput" name="foto" class="profile-file-input" accept="image/jpeg,image/png,image/gif,image/webp">
+          </label>
+          <a class="profile-notifications-link" href="{{ url_for('mis_notificaciones') }}">
+            <span class="profile-bell"></span>
+            <span>Ver mis notificaciones{% if notificaciones_sin_leer > 0 %} ({{ notificaciones_sin_leer }} nuevas){% endif %}</span>
+          </a>
+        </div>
+        <div class="modal-footer profile-modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar cambios</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  const profileFileInput = document.getElementById('fotoInput');
+  const profileFileName = document.getElementById('profileFileName');
+  if (profileFileInput && profileFileName) {
+    profileFileInput.addEventListener('change', () => {
+      profileFileName.textContent = profileFileInput.files[0]?.name || 'Ningún archivo seleccionado';
+    });
+  }
+</script>
 
 <!-- Modal de Términos y Condiciones -->
 <div class="modal fade" id="terminosModal" tabindex="-1" aria-labelledby="terminosModalLabel" aria-hidden="true">

@@ -1,0 +1,30 @@
+{
+  "evento": {
+    "id": 97,
+    "titulo": "LA FLORA AL RITMO",
+    "fecha": "2026-08-27",
+    "hora": "9:57:00",
+    "descripcion": "LA FLORAA",
+    "lugar": "la floraa",
+    "capacidad_maxima": 12,
+    "finalizado": true,
+    "categoria": "Cultural",
+    "created_by": 73,
+    "created_at": "2026-08-27 09:52:55"
+  },
+  "inscriptos": [
+    {
+      "nombre": "Braian12",
+      "gmail": "braiangallo035@gmail.com",
+      "confirmado_at": null,
+      "metodo_confirmacion": null
+    },
+    {
+      "nombre": "santiriedelpro",
+      "gmail": "santiriedel1@gmail.com",
+      "confirmado_at": null,
+      "metodo_confirmacion": null
+    }
+  ],
+  "guardado_en": "2026-08-27T11:35:15"
+}

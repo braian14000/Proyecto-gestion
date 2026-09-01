@@ -2,7 +2,7 @@ from werkzeug.security import check_password_hash
 from flask_login import UserMixin
 
 class User(UserMixin):
-    def __init__(self, id, username, email, password, telefono="", dni="", rol="estudiante"):
+    def __init__(self, id, username, email, password, telefono="", dni="", rol="estudiante", foto_perfil=None):
         self.id = id
         self.username = username  
         self.email = email        
@@ -10,6 +10,7 @@ class User(UserMixin):
         self.telefono = telefono
         self.dni = dni
         self.rol = (rol or 'estudiante').strip().lower()
+        self.foto_perfil = foto_perfil
     
     def is_admin(self):
         return self.rol == 'admin'

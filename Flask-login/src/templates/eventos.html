@@ -43,6 +43,7 @@
             width: 100%;
             height: 40px;
             min-height: 40px;
+            margin: 0;
             box-sizing: border-box;
             border: 1px solid #cfd1e8;
             border-radius: 8px;
@@ -51,10 +52,20 @@
             background: #fff;
         }
         .filtros-eventos .btn {
-            align-self: end;
             height: 40px;
             min-height: 40px;
             white-space: nowrap;
+        }
+        .filtros-eventos > .acciones-filtros {
+            display: flex;
+            flex-direction: column;
+            align-self: end;
+            gap: 8px;
+            grid-template-rows: none;
+            align-content: normal;
+        }
+        .acciones-filtros .btn {
+            width: 100%;
         }
         .ubicacion-eventos {
             grid-column: 1 / -1;
@@ -116,8 +127,10 @@
             </div>
             <input type="hidden" id="latitud-usuario" name="latitud" value="{{ user_latitude or '' }}">
             <input type="hidden" id="longitud-usuario" name="longitud" value="{{ user_longitude or '' }}">
-            <button type="submit" class="btn btn-primary">Filtrar</button>
-            <a href="{{ url_for('ver_eventos') }}" class="btn btn-outline-secondary">Limpiar</a>
+            <div class="acciones-filtros">
+                <button type="submit" class="btn btn-primary">Filtrar</button>
+                <a href="{{ url_for('ver_eventos') }}" class="btn btn-outline-secondary">Limpiar</a>
+            </div>
         </form>
 
         {% if eventos %}
@@ -194,11 +207,6 @@
         </div>
         {% endif %}
 
-        <div class="enlaces mt-4 pt-3 border-top">
-            {% if is_admin %}
-            <a href="/admin" class="btn btn-sm btn-primary">+ Agregar evento</a>
-            {% endif %}
-        </div>
     </div>
     <script>
         const locationData = localStorage.getItem('ubicacion_usuario');

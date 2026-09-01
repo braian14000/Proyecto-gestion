@@ -39,6 +39,73 @@
             <p>{{ evento.descripcion }}</p>
         </div>
 
+        <!-- INFORMACIÓN DEL ORGANIZADOR Y CONTACTO -->
+        <div style="background: #e8f4f8; padding: 20px; border-radius: 8px; margin-top: 30px; margin-bottom: 30px; border-left: 4px solid #0d6efd;">
+            <h3 style="margin-top: 0; color: #0d6efd;"> Organizador del Evento</h3>
+            
+            {% if evento.organizador %}
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        {% if evento.organizador.foto_perfil %}
+                            <img src="{{ url_for('static', filename=evento.organizador.foto_perfil) }}" alt="Foto de {{ evento.organizador.nombre }}" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover; border: 2px solid #0d6efd;">
+                        {% else %}
+                            <div style="width: 60px; height: 60px; border-radius: 50%; background: #0d6efd; color: white; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold;">
+                                {{ evento.organizador.nombre[0].upper() if evento.organizador.nombre else '?' }}
+                            </div>
+                        {% endif %}
+                        <p style="margin: 0;"><strong>{{ evento.organizador.nombre }}</strong></p>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        {% if current_user.is_authenticated and current_user.id != evento.organizador.id %}
+                            {% if is_following %}
+                                <form method="post" action="{{ url_for('dejar_de_seguir', user_id=evento.organizador.id) }}" style="display: inline;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn btn-secondary" style="background: #6c757d; color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                                         Siguiendo
+                                    </button>
+                                </form>
+                            {% else %}
+                                <form method="post" action="{{ url_for('seguir_usuario', user_id=evento.organizador.id) }}" style="display: inline;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn btn-primary" style="background: #0d6efd; color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                                         Seguir
+                                    </button>
+                                </form>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <details style="cursor: pointer; margin-top: 15px;">
+                    <summary style="padding: 10px; background: #fff; border-radius: 5px; font-weight: bold; color: #0d6efd; cursor: pointer;">
+                         Contactar al organizador
+                    </summary>
+                    <form method="post" action="{{ url_for('enviar_contacto_organizador') }}" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ccc;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="evento_id" value="{{ evento.id }}">
+                        <input type="hidden" name="organizador_id" value="{{ evento.organizador.id }}">
+                        
+                        <div style="margin-bottom: 12px;">
+                            <label for="asunto" style="display: block; font-weight: bold; margin-bottom: 5px;">Asunto:</label>
+                            <input type="text" id="asunto" name="asunto" placeholder="Ej: Consulta sobre el evento" required style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+                        </div>
+                        
+                        <div style="margin-bottom: 12px;">
+                            <label for="mensaje" style="display: block; font-weight: bold; margin-bottom: 5px;">Mensaje:</label>
+                            <textarea id="mensaje" name="mensaje" placeholder="Escribe tu mensaje aquí..." required style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; min-height: 120px; font-family: Arial, sans-serif; resize: vertical;"></textarea>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary" style="background: #0d6efd; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                             Enviar Mensaje
+                        </button>
+                    </form>
+                </details>
+            {% else %}
+                <p style="color: #666; font-style: italic;">Los datos del organizador no están disponibles para este evento.</p>
+                <p style="color: #0d6efd; font-weight: bold;">📧 Para contactar: <a href="mailto:gestioneventocontrasena12@gmail.com" style="color: #0d6efd; text-decoration: none;">Soporte del Sistema</a></p>
+            {% endif %}
+        </div>
+
         {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             <div class="flash-messages">

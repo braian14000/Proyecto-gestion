@@ -7,7 +7,7 @@ class ModelUser():
         try:
             cursor = db.connection.cursor()
             sql = """
-                                SELECT u.id, u.username, u.email, u.password, u.telefono, u.dni,
+                                SELECT u.id, u.username, u.email, u.password, u.telefono, u.dni, u.foto_perfil,
                                              CASE
                                                  WHEN u.rol = 'organizador' AND NOT EXISTS (
                                                      SELECT 1 FROM organizer_role_requests r
@@ -23,7 +23,7 @@ class ModelUser():
             
             if row != None:
                 hashed_password = row[3]
-                rol = (row[6] or 'estudiante').strip().lower() if len(row) > 6 else 'estudiante'
+                rol = (row[7] or 'estudiante').strip().lower() if len(row) > 7 else 'estudiante'
                 user_match = User(
                     row[0],
                     row[1],
@@ -31,7 +31,8 @@ class ModelUser():
                     User.check_password(hashed_password, user.password),
                     row[4],
                     row[5],
-                    rol
+                    rol,
+                    row[6]
                 )
                 return user_match
             else:
@@ -44,7 +45,7 @@ class ModelUser():
         try:
             cursor = db.connection.cursor()
             sql = """
-                                SELECT u.id, u.username, u.email, u.telefono, u.dni,
+                                SELECT u.id, u.username, u.email, u.telefono, u.dni, u.foto_perfil,
                                              CASE
                                                  WHEN u.rol = 'organizador' AND NOT EXISTS (
                                                      SELECT 1 FROM organizer_role_requests r
@@ -59,8 +60,8 @@ class ModelUser():
             row = cursor.fetchone()
             
             if row != None:
-                rol = (row[5] or 'estudiante').strip().lower() if len(row) > 5 else 'estudiante'
-                return User(row[0], row[1], row[2], None, row[3], row[4], rol)
+                rol = (row[6] or 'estudiante').strip().lower() if len(row) > 6 else 'estudiante'
+                return User(row[0], row[1], row[2], None, row[3], row[4], rol, row[5])
             else:
                 return None
         except Exception as ex:

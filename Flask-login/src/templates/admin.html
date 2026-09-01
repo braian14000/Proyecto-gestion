@@ -81,7 +81,7 @@
     </div>
     <div class="card-body">
       <div class="admin-actions" id="admin-actions">
-        <a href="{{ url_for('ver_eventos') }}" class="btn btn-admin-secondary btn-pill shadow-sm">Validar QR</a>
+        <a href="#crear-evento" class="btn btn-admin-primary btn-pill shadow-sm">Crear evento</a>
         <a href="{{ url_for('home') }}" class="btn btn-outline-secondary btn-pill shadow-sm">Volver al menú</a>
         {% if current_user.rol == 'admin' %}
           <a href="{{ url_for('gestionar_organizadores') }}" class="btn btn-admin-outline btn-pill shadow-sm">Administrar Usuarios</a>

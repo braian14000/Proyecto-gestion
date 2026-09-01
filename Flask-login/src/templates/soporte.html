@@ -4,159 +4,181 @@
 
 {% block customCSS %}
 <style>
-    body {
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        background-color: #f9f9f9;
-        color: #f9fafd;
-        margin: 0;
-        padding: 0;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        min-height: 100vh;
-    }
-    .contenedor-formulario {
-        background-color: #04047f;
-        padding: 30px;
-        border-radius: 12px;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0);
-        width: 100%;
-        max-width: 500px;
-        box-sizing: border-box;
-    }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f9f9f9;
+            color: #f9fafd;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .contenedor-formulario {
+            background-color: #03034e;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+            width: 100%;
+            max-width: 500px;
+            box-sizing: border-box;
+        }
 
-    h2 {
-        margin-top: 0;
-        color: #ffffff;
-        font-size: 24px;
-        text-align: center;
-    }
-    .subtitulo {
-        color: #f8f9fd;
-        font-size: 14px;
-        text-align: center;
-        margin-bottom: 25px;
-    }
-    .grupo-input {
-        margin-bottom: 20px;
-        display: flex;
-        flex-direction: column;
-    }
+        h2 {
+            margin-top: 0;
+            color: #ffffff;
+            font-size: 24px;
+            text-align: center;
+        }
+        .subtitulo {
+            color: #f8f9fd;
+            font-size: 14px;
+            text-align: center;
+            margin-bottom: 25px;
+        }
+        .grupo-input {
+            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+        }
 
-    label {
-        font-size: 14px;
-        margin-bottom: 8px;
-        color: #e9eaf3;
-        font-weight: 600;
-    }
-    input[type="text"],
-    input[type="email"],
-    select,
-    textarea {
-        background-color: #181825;
-        color: #fafafb;
-        border: 2px solid #111111;
-        padding: 12px;
-        border-radius: 6px;
-        font-size: 15px;
-        outline: none;
-        transition: border-color 0.3s ease;
-    }
-    input:focus,
-    select:focus,
-    textarea:focus {
-        border-color: #fef9fd;
-    }
-    textarea {
-        resize: vertical;
-    }
-    .btn-enviar {
-        background-color: #efecee;
-        color: #11111b;
-        border: none;
-        padding: 14px;
-        width: 100%;
-        font-size: 16px;
-        font-weight: bold;
-        border-radius: 6px;
-        cursor: pointer;
-        transition: background-color 0.3s ease, transform 0.1s ease;
-    }
+        label {
+            font-size: 14px;
+            margin-bottom: 8px;
+            color: #e9eaf3;
+            font-weight: 600;
+        }
+        input[type="text"],
+        input[type="email"],
+        input[type="file"],
+        select,
+        textarea {
+            background-color: #181825;
+            color: #fafafb;
+            border: 2px solid #111111;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 15px;
+            outline: none;
+            transition: border-color 0.3s ease;
+        }
+        input[type="file"] {
+            padding: 8px;
+            cursor: pointer;
+        }
+        input:focus,
+        select:focus,
+        textarea:focus {
+            border-color: #fef9fd;
+        }
+        textarea {
+            resize: vertical;
+        }
+        .btn-enviar {
+            background-color: #ffffff;
+            color: #03034e;
+            border: 2px solid #ffffff;
+            padding: 14px;
+            width: 100%;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+        }
 
-    .btn-enviar:hover {
-        background-color: #f5f1f3;
-    }
+        .btn-enviar:hover {
+            background-color: #e8e8ff;
+            border-color: #e8e8ff;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(255, 255, 255, 0.3);
+        }
 
-    .btn-enviar:active {
-        transform: scale(0.98);
-    }
+        .btn-enviar:active {
+            transform: translateY(0);
+        }
 
-    .btn-volver {
-        display: inline-block;
-        margin-bottom: 16px;
-        background-color: transparent;
-        color: #ffffff;
-        border: 1px solid #ffffff;
-        padding: 10px 18px;
-        border-radius: 6px;
-        cursor: pointer;
-        transition: background-color 0.3s ease, color 0.3s ease;
-    }
+        .btn-volver {
+            display: inline-block;
+            background-color: #1a1a3e;
+            color: #ffffff;
+            padding: 10px 16px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 600;
+            border: 2px solid #3a3a6e;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+        }
 
-    .btn-volver:hover {
-        background-color: #ffffff;
-        color: #04047f;
-    }
-</style>
+        .btn-volver:hover {
+            background-color: #2a2a5e;
+            border-color: #5a5a8e;
+        }
+    </style>
 {% endblock %}
 
 {% block body %}
 <div class="contenedor-formulario">
-    <a href="{{ url_for('home') }}" class="btn-volver">Volver</a>
-    <h2>Centro de Soporte</h2>
-    <p class="subtitulo">Reportá un problema en la plataforma de Eventos de la UTN.</p>
+        <h2>Centro de Soporte</h2>
+        <a href="{{ url_for('home') }}" class="btn-volver">Volver</a>
+        <p class="subtitulo">Reportá un problema en la plataforma de Eventos de la UTN.</p>
 
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                <div class="alert alert-{% if category == 'error' %}danger{% else %}success{% endif %} mt-3" role="alert">
-                    {{ message }}
-                </div>
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
+        <form action="/enviar-ticket" method="POST" enctype="multipart/form-data">
+            <div class="grupo-input">
+                <label for="nombre">Nombre Completo *</label>
+                <input type="text" id="nombre" name="nombre" placeholder="Nombre y Apellido" required>
+            </div>
 
-    <form action="{{ url_for('enviar_ticket') }}" method="POST">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-        <div class="grupo-input">
-            <label for="nombre">Nombre Completo:</label>
-            <input type="text" id="nombre" name="nombre" placeholder="Nombre y Apellido" required>
-        </div>
+            <div class="grupo-input">
+                <label for="legajo">Legajo o DNI *</label>
+                <input type="text" id="legajo" name="legajo" placeholder="Ej: 49500 o DNI" required>
+            </div>
 
-        <div class="grupo-input">
-            <label for="email">Tu Correo Electrónico:</label>
-            <input type="email" id="email" name="email" placeholder="Ej: tu_correo@gmail.com" required>
-        </div>
+            <div class="grupo-input">
+                <label for="email">Tu Correo Electrónico *</label>
+                <input type="email" id="email" name="email" placeholder="Ej: tu_correo@gmail.com" required>
+            </div>
+            
 
-        <div class="grupo-input">
-            <label for="categoria">Seleccioná el problema:</label>
-            <select id="categoria" name="categoria" required>
-                <option value="" disabled selected>Seleccioná una opción</option>
-                <option value="No puedo iniciar sesión">No puedo iniciar sesión</option>
-                <option value="No puedo inscribirme a un evento">No puedo inscribirme a un evento</option>
-                <option value="No puedo ver mi código QR">No puedo ver mi código QR</option>
-                <option value="No recibí el correo con el QR">No recibí el correo con el QR</option>
-                <option value="Problema con mis datos personales">Problema con mis datos personales</option>
-                <option value="Otro">Otro problema</option>
-            </select>
-        </div>
+            <div class="grupo-input">
+                <label for="prioridad">Gravedad del problema *</label>
+                <select id="prioridad" name="prioridad" required>
+                    <option value="" disabled selected>Selecciona una opción</option>
+                    <option value="baja"> Baja </option>
+                    <option value="media"> Media </option>
+                    <option value="alta"> Alta </option>
+                </select>
+            </div>
+            
+            <div class="grupo-input">
+                <label for="categoria">Seleccioná el problema *</label>
+                <select id="categoria" name="categoria" required>
+                    <option value="" disabled selected>Seleccioná una opción</option>
+                    <option value="No puedo iniciar sesión">No puedo iniciar sesión</option>
+                    <option value="No puedo inscribirme a un evento">No puedo inscribirme a un evento</option>
+                    <option value="No puedo ver mi código QR">No puedo ver mi código QR</option>
+                    <option value="No recibí el correo con el QR">No recibí el correo con el QR</option>
+                    <option value="Problema con mis datos personales">Problema con mis datos personales</option>
+                    <option value="Otro">Otro problema</option>
+                </select>
+            </div>
 
-        <div class="grupo-input">
-            <label for="descripcion">Descripción problema:</label>
-            <textarea id="descripcion" name="descripcion" rows="5" placeholder="Describir tu Problema" required></textarea>
-        </div>
+            <div class="grupo-input">
+                <label for="descripcion">Descripción problema *</label>
+                <textarea id="descripcion" name="descripcion" rows="5" placeholder="Describir tu Problema" required></textarea>
+            </div>
 
-        <button type="submit" class="btn-enviar">Enviar Ticket</button>
-    </form>
-</div>
+            <div class="grupo-input">
+                <label for="adjunto">Adjuntar captura o imagen (Opcional):</label>
+                <input type="file" id="adjunto" name="adjunto" accept="image/*">
+            </div>
+
+            <button type="submit" class="btn-enviar">Enviar Ticket</button>
+        </form>
+    </div>
+
 {% endblock %}

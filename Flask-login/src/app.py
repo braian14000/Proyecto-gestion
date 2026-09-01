@@ -5,6 +5,8 @@ from flask_login import LoginManager, login_user, logout_user, login_required, c
 from werkzeug.security import generate_password_hash
 
 import qrcode
+import json
+import time
 import os
 import random
 import math
@@ -29,7 +31,7 @@ os.makedirs(EVENT_IMAGES_DIR, exist_ok=True)
 
 # Configuración de Gmail para soporte
 GMAIL_USER = "gestioneventocontrasena12@gmail.com"
-GMAIL_PASS = "jlrwsofpaxaksxoq" 
+GMAIL_PASS = "lxbvaaiwjwnhtjni" 
 SUPPORT_EMAIL = os.getenv("SUPPORT_EMAIL", GMAIL_USER)
 
 db = MySQL(app)
@@ -113,6 +115,82 @@ def ensure_event_table_has_capacity():
 
 ensure_event_table_has_capacity()
 
+def ensure_registration_confirmation_columns():
+    try:
+        with app.app_context():
+            cursor = db.connection.cursor()
+            cursor.execute("SHOW COLUMNS FROM `registrados` LIKE 'confirmado_at'")
+            if cursor.fetchone() is None:
+                cursor.execute("ALTER TABLE `registrados` ADD COLUMN `confirmado_at` DATETIME NULL")
+            cursor.execute("SHOW COLUMNS FROM `registrados` LIKE 'metodo_confirmacion'")
+            if cursor.fetchone() is None:
+                cursor.execute("ALTER TABLE `registrados` ADD COLUMN `metodo_confirmacion` VARCHAR(10) NULL")
+            db.connection.commit()
+    except Exception as ex:
+        print(f"[WARN] No se pudieron asegurar los datos de confirmación: {ex}")
+
+
+ensure_registration_confirmation_columns()
+
+def archive_event_history(event_id):
+    cursor = db.connection.cursor()
+    cursor.execute(
+        """
+        SELECT id, titulo, fecha, hora, descripcion, lugar,
+               capacidad_maxima, finalizado, categoria, created_by, created_at
+        FROM event
+        WHERE id = %s
+        """,
+        (event_id,)
+    )
+    event = cursor.fetchone()
+    if not event:
+        raise ValueError(f'No se encontró el evento {event_id} para archivarlo.')
+
+    cursor.execute(
+        """
+        SELECT r.nombre_usuario, u.email, r.confirmado_at, r.metodo_confirmacion
+        FROM registrados r
+        LEFT JOIN `user` u ON u.dni COLLATE utf8mb4_general_ci = r.dni_usuario COLLATE utf8mb4_general_ci
+        WHERE r.evento_id = %s
+        ORDER BY r.created_at, r.id
+        """,
+        (event_id,)
+    )
+    registrations = [
+        {
+            'nombre': registration[0],
+            'gmail': registration[1],
+            'confirmado_at': registration[2],
+            'metodo_confirmacion': registration[3]
+        }
+        for registration in cursor.fetchall()
+    ]
+    archive = {
+        'evento': {
+            'id': event[0],
+            'titulo': event[1],
+            'fecha': event[2],
+            'hora': event[3],
+            'descripcion': event[4],
+            'lugar': event[5],
+            'capacidad_maxima': event[6],
+            'finalizado': bool(event[7]),
+            'categoria': event[8],
+            'created_by': event[9],
+            'created_at': event[10]
+        },
+        'inscriptos': registrations,
+        'guardado_en': datetime.now().isoformat(timespec='seconds')
+    }
+    archive_dir = os.path.join(app.instance_path, 'historial_eventos')
+    os.makedirs(archive_dir, exist_ok=True)
+    archive_path = os.path.join(archive_dir, f'evento_{event_id}.json')
+    temporary_path = f'{archive_path}.tmp'
+    with open(temporary_path, 'w', encoding='utf-8') as archive_file:
+        json.dump(archive, archive_file, ensure_ascii=False, indent=2, default=str)
+    os.replace(temporary_path, archive_path)
+
 def save_event_image(image_file):
     if not image_file or not image_file.filename:
         return None
@@ -148,8 +226,133 @@ def ensure_organizer_requests_table():
     except Exception as ex:
         print(f"[WARN] No se pudo asegurar la tabla de solicitudes: {ex}")
 
+def ensure_notifications_table():
+    try:
+        with app.app_context():
+            cursor = db.connection.cursor()
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS mensajes_organizador (
+                  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                  organizador_id INT UNSIGNED NOT NULL,
+                  remitente_id INT UNSIGNED,
+                  evento_id INT UNSIGNED NOT NULL,
+                  asunto VARCHAR(255) NOT NULL,
+                  mensaje TEXT NOT NULL,
+                  leido TINYINT(1) DEFAULT 0,
+                  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  PRIMARY KEY (id),
+                  KEY idx_organizador (organizador_id),
+                  KEY idx_evento (evento_id),
+                  KEY idx_leido (leido),
+                  FOREIGN KEY (organizador_id) REFERENCES `user`(id),
+                  FOREIGN KEY (remitente_id) REFERENCES `user`(id),
+                  FOREIGN KEY (evento_id) REFERENCES event(id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+                """
+            )
+            db.connection.commit()
+            print("[INFO] Tabla mensajes_organizador creada/verificada.")
+    except Exception as ex:
+        print(f"[WARN] No se pudo asegurar la tabla de notificaciones: {ex}")
+
+def ensure_followers_table():
+    try:
+        with app.app_context():
+            cursor = db.connection.cursor()
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS seguidores (
+                  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                  seguidor_id INT UNSIGNED NOT NULL,
+                  seguido_id INT UNSIGNED NOT NULL,
+                  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  PRIMARY KEY (id),
+                  UNIQUE KEY unique_seguidor (seguidor_id, seguido_id),
+                  KEY idx_seguido (seguido_id),
+                  FOREIGN KEY (seguidor_id) REFERENCES `user`(id),
+                  FOREIGN KEY (seguido_id) REFERENCES `user`(id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+                """
+            )
+            db.connection.commit()
+            print("[INFO] Tabla seguidores creada/verificada.")
+    except Exception as ex:
+        print(f"[WARN] No se pudo asegurar la tabla de seguidores: {ex}")
+
+def ensure_replies_table():
+    try:
+        with app.app_context():
+            cursor = db.connection.cursor()
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS respuestas_organizador (
+                  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                  mensaje_id INT UNSIGNED NOT NULL,
+                  organizador_id INT UNSIGNED NOT NULL,
+                  destinatario_id INT UNSIGNED NULL,
+                  autor_id INT UNSIGNED NULL,
+                  respuesta TEXT NOT NULL,
+                  leido_destinatario TINYINT(1) NOT NULL DEFAULT 0,
+                  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  PRIMARY KEY (id),
+                  KEY idx_mensaje (mensaje_id),
+                  KEY idx_organizador (organizador_id),
+                  KEY idx_destinatario (destinatario_id),
+                  KEY idx_autor (autor_id),
+                  FOREIGN KEY (mensaje_id) REFERENCES mensajes_organizador(id),
+                  FOREIGN KEY (organizador_id) REFERENCES `user`(id),
+                  FOREIGN KEY (destinatario_id) REFERENCES `user`(id) ON DELETE SET NULL,
+                  FOREIGN KEY (autor_id) REFERENCES `user`(id) ON DELETE SET NULL
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+                """
+            )
+            cursor.execute("SHOW COLUMNS FROM respuestas_organizador LIKE 'destinatario_id'")
+            if cursor.fetchone() is None:
+                cursor.execute("ALTER TABLE respuestas_organizador ADD COLUMN destinatario_id INT UNSIGNED NULL AFTER organizador_id")
+                cursor.execute("ALTER TABLE respuestas_organizador ADD KEY idx_destinatario (destinatario_id)")
+                cursor.execute("ALTER TABLE respuestas_organizador ADD CONSTRAINT fk_respuestas_destinatario FOREIGN KEY (destinatario_id) REFERENCES `user`(id) ON DELETE SET NULL")
+            cursor.execute("SHOW COLUMNS FROM respuestas_organizador LIKE 'autor_id'")
+            if cursor.fetchone() is None:
+                cursor.execute("ALTER TABLE respuestas_organizador ADD COLUMN autor_id INT UNSIGNED NULL AFTER destinatario_id")
+                cursor.execute("ALTER TABLE respuestas_organizador ADD KEY idx_autor (autor_id)")
+                cursor.execute("ALTER TABLE respuestas_organizador ADD CONSTRAINT fk_respuestas_autor FOREIGN KEY (autor_id) REFERENCES `user`(id) ON DELETE SET NULL")
+            cursor.execute("SHOW COLUMNS FROM respuestas_organizador LIKE 'leido_destinatario'")
+            if cursor.fetchone() is None:
+                cursor.execute("ALTER TABLE respuestas_organizador ADD COLUMN leido_destinatario TINYINT(1) NOT NULL DEFAULT 0")
+            cursor.execute(
+                """
+                UPDATE respuestas_organizador r
+                INNER JOIN mensajes_organizador m ON m.id = r.mensaje_id
+                SET r.destinatario_id = m.remitente_id
+                WHERE r.destinatario_id IS NULL
+                """
+            )
+            cursor.execute(
+                "UPDATE respuestas_organizador SET autor_id = organizador_id WHERE autor_id IS NULL"
+            )
+            db.connection.commit()
+            print("[INFO] Tabla respuestas_organizador creada/verificada.")
+    except Exception as ex:
+        print(f"[WARN] No se pudo asegurar la tabla de respuestas: {ex}")
+
+def add_profile_photo_column():
+    try:
+        with app.app_context():
+            cursor = db.connection.cursor()
+            cursor.execute("SHOW COLUMNS FROM `user` LIKE 'foto_perfil'")
+            if cursor.fetchone() is None:
+                cursor.execute("ALTER TABLE `user` ADD COLUMN `foto_perfil` VARCHAR(255) NULL DEFAULT NULL")
+                db.connection.commit()
+                print("[INFO] Columna foto_perfil agregada a tabla user.")
+    except Exception as ex:
+        print(f"[WARN] No se pudo agregar columna foto_perfil: {ex}")
 
 ensure_organizer_requests_table()
+ensure_notifications_table()
+ensure_followers_table()
+ensure_replies_table()
+add_profile_photo_column()
 csrf = CSRFProtect(app)
 login_manager_app = LoginManager(app)
 login_manager_app.login_view = 'login'
@@ -229,7 +432,7 @@ def get_pending_organizer_requests():
 def get_events_from_db():
     try:
         cursor = db.connection.cursor()
-        cursor.execute("SELECT id, titulo, fecha, hora, descripcion, lugar, capacidad_maxima, finalizado, categoria, latitud, longitud, imagen FROM event ORDER BY fecha, hora")
+        cursor.execute("SELECT id, titulo, fecha, hora, descripcion, lugar, capacidad_maxima, finalizado, categoria, latitud, longitud, imagen FROM event WHERE finalizado = 0 AND fecha >= CURDATE() ORDER BY fecha, hora")
         rows = cursor.fetchall()
         events = []
         for r in rows:
@@ -313,6 +516,28 @@ def get_event_from_db(event_id):
         if not r:
             return None
         hora = r[3].strftime('%H:%M') if hasattr(r[3], 'strftime') else str(r[3] or '00:00')
+        
+        # Obtener información del organizador
+        organizador = None
+        created_by_id = r[9]
+        if created_by_id:
+            try:
+                cursor.execute(
+                    "SELECT id, username, email, telefono, foto_perfil FROM `user` WHERE id = %s LIMIT 1",
+                    (created_by_id,)
+                )
+                org_row = cursor.fetchone()
+                if org_row:
+                    organizador = {
+                        'id': org_row[0],
+                        'nombre': org_row[1],
+                        'email': org_row[2],
+                        'telefono': org_row[3],
+                        'foto_perfil': org_row[4]
+                    }
+            except Exception as ex:
+                print(f"[WARN] No se pudo obtener info del organizador: {ex}")
+        
         return {
             'id': r[0],
             'titulo': r[1],
@@ -327,7 +552,8 @@ def get_event_from_db(event_id):
             'latitud': float(r[10]) if r[10] is not None else None,
             'longitud': float(r[11]) if r[11] is not None else None,
             'imagen': r[12],
-            'inscritos_count': int(r[13]) if r[13] is not None else 0
+            'inscritos_count': int(r[13]) if r[13] is not None else 0,
+            'organizador': organizador
         }
     except Exception:
         return None
@@ -403,12 +629,13 @@ def get_user_registrations(db, dni_usuario):
 
 
 def delete_finished_events_and_qr():
-    """Elimina eventos ya finalizados, sus registros y sus QR asociados."""
+    """Guarda y elimina eventos finalizados, sus registros y sus QR asociados."""
     try:
         cursor = db.connection.cursor()
         cursor.execute(
             """
-            SELECT id
+            SELECT id, titulo, fecha, hora, descripcion, lugar,
+                   capacidad_maxima, finalizado, categoria, created_by, created_at
             FROM event
             WHERE finalizado = 1 OR fecha < CURDATE()
             ORDER BY id
@@ -420,6 +647,10 @@ def delete_finished_events_and_qr():
             return {'deleted_events': 0, 'deleted_registrations': 0, 'deleted_qr_files': 0}
 
         event_ids = [row[0] for row in events]
+
+        for event_id in event_ids:
+            archive_event_history(event_id)
+
         qr_paths_to_remove = []
         for event_id in event_ids:
             cursor2 = db.connection.cursor()
@@ -446,12 +677,13 @@ def delete_finished_events_and_qr():
 
         placeholders = ', '.join(['%s'] * len(event_ids))
         cursor.execute(f"DELETE FROM registrados WHERE evento_id IN ({placeholders})", tuple(event_ids))
+        deleted_registrations = cursor.rowcount
         cursor.execute(f"DELETE FROM event WHERE id IN ({placeholders})", tuple(event_ids))
         db.connection.commit()
 
         return {
             'deleted_events': len(event_ids),
-            'deleted_registrations': cursor.rowcount if hasattr(cursor, 'rowcount') else len(event_ids),
+            'deleted_registrations': deleted_registrations,
             'deleted_qr_files': len(seen_qr_paths)
         }
     except Exception as ex:
@@ -489,11 +721,9 @@ def generate_qr_code(evento_id, dni_usuario, nombre_usuario, registro_id):
         print(f"Error generando QR: {ex}")
         return None
 
-# ============ MAIL CONFIG ============
 
 from flask_mail import Mail, Message
 
-# Usar GMAIL_USER y GMAIL_PASS definidos arriba (no cargar .env)
 app.config.update({
     'MAIL_SERVER': 'smtp.gmail.com',
     'MAIL_PORT': 587,
@@ -506,7 +736,6 @@ app.config.update({
 mail = Mail(app)
 print(f"[INFO] Mail configurado con usuario: {GMAIL_USER}")
 
-# ============ RUTAS PÚBLICAS ============
 
 @app.route('/')
 def index():
@@ -1137,15 +1366,23 @@ def home():
     usuario_display = getattr(current_user, 'username', None) or getattr(current_user, 'email', '')
     solicitud_estado = None
     solicitudes_pendientes = 0
+    notificaciones_sin_leer = 0
+    
     if getattr(current_user, 'rol', '') == 'estudiante' and getattr(current_user, 'id', 0) != 0:
         solicitud_estado = get_organizer_request_status(current_user.id)
+        notificaciones_sin_leer = get_unread_responses_count(current_user.id)
     elif getattr(current_user, 'rol', '') == 'admin':
         solicitudes_pendientes = len(get_pending_organizer_requests())
+        notificaciones_sin_leer = get_unread_notifications_count(current_user.id)
+    elif getattr(current_user, 'rol', '') == 'organizador':
+        notificaciones_sin_leer = get_unread_notifications_count(current_user.id)
+    
     return render_template(
         'menu.html',
         usuario=usuario_display,
         solicitud_estado=solicitud_estado,
-        solicitudes_pendientes=solicitudes_pendientes
+        solicitudes_pendientes=solicitudes_pendientes,
+        notificaciones_sin_leer=notificaciones_sin_leer
     )
 
 @app.route('/eventos')
@@ -1238,6 +1475,12 @@ def detalle_evento(evento_id):
         registrado = is_user_registered(db, evento_id, user_dni)
     cupos_disponibles = max(evento.get('capacidad_maxima', 0) - evento.get('inscritos_count', 0), 0)
     back_url = url_for('mis_eventos') if origin == 'mis_eventos' else url_for('ver_eventos')
+    
+    # Verificar si el usuario sigue al organizador
+    is_following = False
+    if current_user.is_authenticated and evento.get('organizador'):
+        is_following = is_user_following(current_user.id, evento.get('organizador', {}).get('id'))
+    
     if evento.get('finalizado'):
         flash('Este evento ya finalizó y quedó cerrado para nuevas inscripciones o validaciones.', 'warning')
     return render_template(
@@ -1246,7 +1489,8 @@ def detalle_evento(evento_id):
         registrado=registrado,
         origin=origin,
         back_url=back_url,
-        cupos_disponibles=cupos_disponibles
+        cupos_disponibles=cupos_disponibles,
+        is_following=is_following
     )
 
 @app.route('/evento/registrar/<int:evento_id>', methods=['POST'])
@@ -1402,6 +1646,7 @@ def finalizar_evento(evento_id):
             flash('Evento finalizado correctamente. Los certificados fueron enviados solo a los usuarios validados.', 'success')
 
         cursor.execute("UPDATE event SET finalizado = 1 WHERE id = %s", (evento_id,))
+        archive_event_history(evento_id)
         db.connection.commit()
     except Exception as ex:
         db.connection.rollback()
@@ -1441,6 +1686,7 @@ def validar_qr_entrada():
 
     try:
         cursor = db.connection.cursor()
+        confirmation_method = 'QR' if qr_data else 'DNI'
         if qr_data:
             import re
             match = re.search(r'\|DNI:(.+?)\|', str(qr_data))
@@ -1462,8 +1708,14 @@ def validar_qr_entrada():
 
         if existe:
             cursor.execute(
-                "UPDATE registrados SET asistido = 1 WHERE evento_id = %s AND dni_usuario = %s",
-                (evento_id, dni)
+                """
+                UPDATE registrados
+                SET asistido = 1,
+                    confirmado_at = COALESCE(confirmado_at, NOW()),
+                    metodo_confirmacion = COALESCE(metodo_confirmacion, %s)
+                WHERE evento_id = %s AND dni_usuario = %s
+                """,
+                (confirmation_method, evento_id, dni)
             )
             db.connection.commit()
 
@@ -1489,6 +1741,51 @@ def validar_qr_entrada():
     except Exception as ex:
         print(f"[ERROR] validar_qr_entrada: {ex}")
         return jsonify({'success': False, 'message': 'Ocurrió un error al validar el QR.'}), 500
+
+
+@app.route('/api/notificaciones', methods=['GET'])
+@login_required
+def obtener_notificaciones():
+    """Obtiene las notificaciones de mensajes del usuario autenticado."""
+    try:
+        if getattr(current_user, 'rol', '') not in ('organizador', 'admin'):
+            return jsonify({'success': False, 'message': 'No autorizado'}), 403
+        
+        cursor = db.connection.cursor()
+        cursor.execute(
+            """
+            SELECT m.id, u.username, m.asunto, m.mensaje, m.created_at, m.leido, m.evento_id
+            FROM mensajes_organizador m
+            LEFT JOIN `user` u ON u.id = m.remitente_id
+            WHERE m.organizador_id = %s
+            ORDER BY m.created_at DESC
+            LIMIT 20
+            """,
+            (current_user.id,)
+        )
+        rows = cursor.fetchall()
+        
+        notificaciones = []
+        for row in rows:
+            created_at = row[4].strftime('%d/%m/%Y %H:%M') if hasattr(row[4], 'strftime') else str(row[4])
+            notificaciones.append({
+                'id': row[0],
+                'remitente': row[1] or 'Desconocido',
+                'asunto': row[2],
+                'mensaje': row[3],
+                'fecha': created_at,
+                'leido': bool(row[5]),
+                'evento_id': row[6]
+            })
+        
+        return jsonify({
+            'success': True,
+            'notificaciones': notificaciones,
+            'total': len(notificaciones)
+        })
+    except Exception as ex:
+        print(f"[ERROR] obtener_notificaciones: {ex}")
+        return jsonify({'success': False, 'message': str(ex)}), 500
 
 
 @app.route('/api/enviar-certificados-lote', methods=['POST'])
@@ -1701,6 +1998,42 @@ def debug_registros():
     except Exception as ex:
         return f"Error: {ex}"
 
+@app.route('/evento/contactar-organizador', methods=['POST'])
+@login_required
+def enviar_contacto_organizador():
+    """Envía un mensaje al organizador de un evento (guardado en BD, no email)"""
+    evento_id = request.form.get('evento_id')
+    organizador_id = request.form.get('organizador_id')
+    asunto = request.form.get('asunto', '').strip()
+    mensaje = request.form.get('mensaje', '').strip()
+    
+    if not evento_id or not organizador_id or not asunto or not mensaje:
+        flash('Por favor completa todos los campos requeridos.', 'error')
+        return redirect(url_for('detalle_evento', evento_id=evento_id))
+    
+    try:
+        cursor = db.connection.cursor()
+        remitente_id = getattr(current_user, 'id', None)
+        
+        # Guardar el mensaje en la BD
+        cursor.execute(
+            """
+            INSERT INTO mensajes_organizador 
+            (organizador_id, remitente_id, evento_id, asunto, mensaje, leido)
+            VALUES (%s, %s, %s, %s, %s, 0)
+            """,
+            (organizador_id, remitente_id, evento_id, asunto, mensaje)
+        )
+        db.connection.commit()
+        
+        flash('✓ Tu mensaje ha sido enviado al organizador. Se notificará dentro de la plataforma.', 'success')
+    except Exception as ex:
+        print(f"[ERROR] enviar_contacto_organizador: {ex}")
+        flash('Ocurrió un error al procesar tu solicitud.', 'error')
+        db.connection.rollback()
+    
+    return redirect(url_for('detalle_evento', evento_id=evento_id))
+
 @app.route('/logout')
 @login_required
 def logout():
@@ -1715,35 +2048,53 @@ def soporte():
 
 @app.route('/enviar-ticket', methods=['POST'])
 def enviar_ticket():
-    """Procesa el envío de tickets de soporte"""
     nombre_usuario = request.form.get('nombre')
+    legajo_usuario = request.form.get('legajo')  
     email_usuario = request.form.get('email')
+    prioridad = request.form.get('prioridad')
     categoria = request.form.get('categoria')
     mensaje = request.form.get('descripcion')
+    
+    ticket_id = int(time.time())
 
     msg = MIMEMultipart()
     msg['From'] = GMAIL_USER
-    msg['To'] = SUPPORT_EMAIL
-    msg['Reply-To'] = email_usuario
-    msg['Subject'] = f"TICKET [{categoria}] - De: {nombre_usuario}"
+    msg['To'] = GMAIL_USER
+    
+    msg['Subject'] = f"TICKET #{ticket_id} [{categoria}] - De: {nombre_usuario}"
 
     cuerpo_correo = f"""
-NUEVO TICKET DE SOPORTE
+NUEVO TICKET DE SOPORTE: #{ticket_id}
 
 Nombre: {nombre_usuario}
+Legajo/DNI: {legajo_usuario}
 Correo: {email_usuario}
 Categoría: {categoria}
+Prioridad: {prioridad}
 
 Descripción del problema:
-
 {mensaje}
 
-----------------------------------------
+__________________________________________
 Sistema de Gestión de Eventos
 UTN Facultad Regional San Francisco
 """
 
     msg.attach(MIMEText(cuerpo_correo, 'plain'))
+
+    file = request.files.get('adjunto')
+    if file and file.filename != '':
+        try:
+            part = MIMEBase('application', 'octet-stream')
+            part.set_payload(file.read())
+            encoders.encode_base64(part)
+            part.add_header(
+                'Content-Disposition',
+                f'attachment; filename={file.filename}',
+            )
+            msg.attach(part)
+        except Exception as file_error:
+            print("Error al adjuntar archivo:", file_error)
 
     try:
         server = smtplib.SMTP('smtp.gmail.com', 587)
@@ -1751,39 +2102,561 @@ UTN Facultad Regional San Francisco
         server.login(GMAIL_USER, GMAIL_PASS)
         server.send_message(msg)
         server.quit()
-        
-        flash('¡Ticket enviado correctamente! El equipo de soporte fue notificado.', 'success')
-        return redirect(url_for('soporte'))
+
+        return f"""
+        <div style="font-family:Arial; text-align:center; margin-top:50px;">
+            <h2 style="color:green;"> Hola, recibimos tu ticket  #{ticket_id}. Nuestro equipo lo revisará a la brevedad</h2>
+            <p>Guardar el número de ticket por favor.</p>
+            <a href="/">Volver al formulario</a>
+        </div>
+        """
 
     except Exception as e:
         print("Error:", e)
-        flash(f'Error al enviar el ticket: {str(e)}', 'error')
-        return redirect(url_for('soporte'))
+        return f"""
+        <div style="font-family:Arial; text-align:center; margin-top:50px;">
+            <h2 style="color:red;">Error al enviar el ticket</h2>
+            <p>{e}</p>
+            <a href="/">Volver</a>
+        </div>
+        """
 
+# ============ RUTAS DE SEGUIMIENTO Y NOTIFICACIONES ============
 
-@app.route('/generar-certificado', methods=['GET', 'POST'])
+def is_user_following(seguidor_id, seguido_id):
+    """Verifica si un usuario sigue a otro"""
+    try:
+        cursor = db.connection.cursor()
+        cursor.execute(
+            "SELECT 1 FROM seguidores WHERE seguidor_id = %s AND seguido_id = %s LIMIT 1",
+            (seguidor_id, seguido_id)
+        )
+        return cursor.fetchone() is not None
+    except Exception:
+        return False
+
+@app.route('/usuario/<int:user_id>/seguir', methods=['POST'])
 @login_required
-def generar_certificado_view():
-    """Formulario simple para generar un certificado y devolverlo como descarga."""
-    if request.method == 'POST':
-        nombre = request.form.get('nombre', '').strip()
-        apellido = request.form.get('apellido', '').strip()
-        dni = request.form.get('dni', '').strip()
-        evento = request.form.get('evento', '').strip()
+def seguir_usuario(user_id):
+    """Seguir a un usuario"""
+    if user_id == getattr(current_user, 'id', None):
+        flash('No puedes seguirte a ti mismo.', 'error')
+        return redirect(request.referrer or url_for('home'))
+    
+    try:
+        cursor = db.connection.cursor()
+        cursor.execute(
+            "INSERT IGNORE INTO seguidores (seguidor_id, seguido_id) VALUES (%s, %s)",
+            (getattr(current_user, 'id', None), user_id)
+        )
+        db.connection.commit()
+        flash('✓ Ahora sigues a este usuario.', 'success')
+    except Exception as ex:
+        print(f"[ERROR] seguir_usuario: {ex}")
+        flash('Ocurrió un error.', 'error')
+    
+    return redirect(request.referrer or url_for('home'))
 
-        if not nombre or not apellido or not dni or not evento:
-            flash('Completa todos los campos.', 'error')
-            return render_template('generar_certificado.html', nombre=nombre, apellido=apellido, dni=dni, evento=evento)
+@app.route('/usuario/<int:user_id>/dejar-de-seguir', methods=['POST'])
+@login_required
+def dejar_de_seguir(user_id):
+    """Dejar de seguir a un usuario"""
+    try:
+        cursor = db.connection.cursor()
+        cursor.execute(
+            "DELETE FROM seguidores WHERE seguidor_id = %s AND seguido_id = %s",
+            (getattr(current_user, 'id', None), user_id)
+        )
+        db.connection.commit()
+        flash('✓ Dejaste de seguir a este usuario.', 'success')
+    except Exception as ex:
+        print(f"[ERROR] dejar_de_seguir: {ex}")
+        flash('Ocurrió un error.', 'error')
+    
+    return redirect(request.referrer or url_for('home'))
 
-        try:
-            salida = generar_certificado(nombre, apellido, dni, evento)
-            return send_file(salida, as_attachment=True)
-        except Exception as ex:
-            print(f"[ERROR] generar_certificado_view: {ex}")
-            flash('Ocurrió un error generando el certificado. Revisa que exista la plantilla y las fuentes.', 'error')
-            return render_template('generar_certificado.html', nombre=nombre, apellido=apellido, dni=dni, evento=evento)
+def get_message_replies(mensaje_id):
+    """Obtiene todas las respuestas a un mensaje"""
+    try:
+        cursor = db.connection.cursor()
+        cursor.execute(
+            """
+                 SELECT r.id, r.autor_id, r.respuesta, r.created_at,
+                     u.username, u.foto_perfil, r.leido_destinatario
+            FROM respuestas_organizador r
+                 LEFT JOIN `user` u ON u.id = COALESCE(r.autor_id, r.organizador_id)
+            WHERE r.mensaje_id = %s
+            ORDER BY r.created_at ASC
+            """,
+            (mensaje_id,)
+        )
+        respuestas = cursor.fetchall()
+        
+        replies = []
+        for resp in respuestas:
+            replies.append({
+                'id': resp[0],
+                'autor_id': resp[1],
+                'respuesta': resp[2],
+                'created_at': resp[3].strftime('%d/%m/%Y %H:%M') if hasattr(resp[3], 'strftime') else str(resp[3]),
+                'autor_nombre': resp[4] or 'Usuario',
+                'autor_foto': resp[5],
+                'leida': bool(resp[6])
+            })
+        return replies
+    except Exception as ex:
+        print(f"[WARN] Error obteniendo respuestas para mensaje {mensaje_id}: {ex}")
+        return []
 
-    return render_template('generar_certificado.html')
+@app.route('/mis-notificaciones')
+@login_required
+def mis_notificaciones():
+    """Muestra mensajes recibidos por organizadores o respuestas del organizador al remitente."""
+    es_organizador = getattr(current_user, 'rol', '') in ('admin', 'organizador')
+    
+    try:
+        cursor = db.connection.cursor()
+        user_id = getattr(current_user, 'id', None)
+        if es_organizador:
+            cursor.execute(
+                """
+                SELECT m.id, m.remitente_id, m.evento_id, m.asunto, m.mensaje, m.created_at, m.leido,
+                       u.username AS remitente_nombre, u.foto_perfil AS remitente_foto, e.titulo AS evento_titulo
+                FROM mensajes_organizador m
+                LEFT JOIN `user` u ON u.id = m.remitente_id
+                LEFT JOIN event e ON e.id = m.evento_id
+                WHERE m.organizador_id = %s
+                ORDER BY m.created_at DESC
+                """,
+                (user_id,)
+            )
+        else:
+            cursor.execute(
+                """
+                SELECT m.id, m.remitente_id, m.evento_id, m.asunto, m.mensaje, m.created_at, m.leido,
+                       u.username AS remitente_nombre, u.foto_perfil AS remitente_foto, e.titulo AS evento_titulo
+                FROM mensajes_organizador m
+                LEFT JOIN `user` u ON u.id = m.remitente_id
+                LEFT JOIN event e ON e.id = m.evento_id
+                WHERE m.remitente_id = %s
+                ORDER BY m.created_at DESC
+                """,
+                (user_id,)
+            )
+        notificaciones = cursor.fetchall()
+        
+        if es_organizador:
+            cursor.execute(
+                "SELECT COUNT(*) FROM mensajes_organizador WHERE organizador_id = %s AND leido = 0",
+                (user_id,)
+            )
+        else:
+            cursor.execute(
+                "SELECT COUNT(*) FROM respuestas_organizador WHERE destinatario_id = %s AND leido_destinatario = 0",
+                (user_id,)
+            )
+        no_leidas_count = cursor.fetchone()[0]
+        
+        notifs = []
+        for n in notificaciones:
+            mensaje_id = n[0]
+            replies = get_message_replies(mensaje_id)
+            
+            notifs.append({
+                'id': mensaje_id,
+                'remitente_id': n[1],
+                'evento_id': n[2],
+                'asunto': n[3],
+                'mensaje': n[4],
+                'created_at': n[5].strftime('%d/%m/%Y %H:%M') if hasattr(n[5], 'strftime') else str(n[5]),
+                'leido': bool(n[6]),
+                'remitente_nombre': n[7] or 'Usuario anónimo',
+                'remitente_foto': n[8],
+                'evento_titulo': n[9] or f'Evento {n[2]}',
+                'respuestas': replies
+            })
+
+        chats = []
+        if es_organizador:
+            chats_by_user = {}
+            for notif in notifs:
+                chat_key = notif['remitente_id'] or 0
+                if chat_key not in chats_by_user:
+                    chats_by_user[chat_key] = {
+                        'usuario_id': notif['remitente_id'],
+                        'nombre': notif['remitente_nombre'],
+                        'foto': notif['remitente_foto'],
+                        'mensajes': []
+                    }
+                    chats.append(chats_by_user[chat_key])
+                chats_by_user[chat_key]['mensajes'].append(notif)
+        
+        return render_template(
+            'notificaciones.html',
+            notificaciones=notifs,
+            chats=chats,
+            no_leidas_count=no_leidas_count,
+            es_organizador=es_organizador
+        )
+    except Exception as ex:
+        print(f"[ERROR] mis_notificaciones: {ex}")
+        flash('Ocurrió un error al cargar las notificaciones.', 'error')
+        return redirect(url_for('home'))
+
+@app.route('/notificacion/<int:notif_id>/marcar-leida', methods=['POST'])
+@login_required
+def marcar_notificacion_leida(notif_id):
+    """Marca una notificación como leída"""
+    try:
+        cursor = db.connection.cursor()
+        cursor.execute(
+            "UPDATE mensajes_organizador SET leido = 1 WHERE id = %s AND organizador_id = %s",
+            (notif_id, getattr(current_user, 'id', None))
+        )
+        db.connection.commit()
+    except Exception as ex:
+        print(f"[ERROR] marcar_notificacion_leida: {ex}")
+    
+    return redirect(url_for('mis_notificaciones'))
+
+@app.route('/chat/<int:usuario_id>/eliminar', methods=['POST'])
+@login_required
+def eliminar_chat(usuario_id):
+    """Elimina todos los mensajes y respuestas de un estudiante con el organizador."""
+    if getattr(current_user, 'rol', '') not in ('admin', 'organizador'):
+        flash('No tienes permiso para eliminar chats.', 'error')
+        return redirect(url_for('home'))
+
+    try:
+        cursor = db.connection.cursor()
+        cursor.execute(
+            "SELECT id FROM mensajes_organizador WHERE organizador_id = %s AND remitente_id = %s",
+            (current_user.id, usuario_id)
+        )
+        mensaje_ids = [row[0] for row in cursor.fetchall()]
+        if mensaje_ids:
+            placeholders = ','.join(['%s'] * len(mensaje_ids))
+            cursor.execute(f"DELETE FROM respuestas_organizador WHERE mensaje_id IN ({placeholders})", tuple(mensaje_ids))
+            cursor.execute(f"DELETE FROM mensajes_organizador WHERE id IN ({placeholders})", tuple(mensaje_ids))
+        db.connection.commit()
+        flash('Chat eliminado correctamente.', 'success')
+    except Exception as ex:
+        db.connection.rollback()
+        print(f"[ERROR] eliminar_chat: {ex}")
+        flash('No se pudo eliminar el chat.', 'error')
+    return redirect(url_for('mis_notificaciones'))
+
+@app.route('/chat/<int:usuario_id>/marcar-leido', methods=['POST'])
+@login_required
+def marcar_chat_leido(usuario_id):
+    """Marca como leídos todos los mensajes y respuestas de un chat."""
+    if getattr(current_user, 'rol', '') not in ('admin', 'organizador'):
+        flash('No tienes permiso para marcar este chat.', 'error')
+        return redirect(url_for('home'))
+
+    try:
+        cursor = db.connection.cursor()
+        cursor.execute(
+            "UPDATE mensajes_organizador SET leido = 1 WHERE organizador_id = %s AND remitente_id = %s",
+            (current_user.id, usuario_id)
+        )
+        cursor.execute(
+            """
+            UPDATE respuestas_organizador
+            SET leido_destinatario = 1
+            WHERE destinatario_id = %s
+              AND mensaje_id IN (
+                SELECT id FROM mensajes_organizador
+                WHERE organizador_id = %s AND remitente_id = %s
+              )
+            """,
+            (current_user.id, current_user.id, usuario_id)
+        )
+        db.connection.commit()
+    except Exception as ex:
+        db.connection.rollback()
+        print(f"[ERROR] marcar_chat_leido: {ex}")
+        flash('No se pudo marcar el chat como leído.', 'error')
+    return redirect(url_for('mis_notificaciones'))
+
+@app.route('/respuesta/<int:respuesta_id>/marcar-leida', methods=['POST'])
+@login_required
+def marcar_respuesta_leida(respuesta_id):
+    """Marca como leída una respuesta dirigida al usuario actual."""
+    try:
+        cursor = db.connection.cursor()
+        cursor.execute(
+            """
+            UPDATE respuestas_organizador
+            SET leido_destinatario = 1
+            WHERE id = %s AND destinatario_id = %s
+            """,
+            (respuesta_id, current_user.id)
+        )
+        db.connection.commit()
+    except Exception as ex:
+        print(f"[ERROR] marcar_respuesta_leida: {ex}")
+        db.connection.rollback()
+    return redirect(url_for('mis_notificaciones'))
+
+@app.route('/notificacion/<int:mensaje_id>/responder', methods=['POST'])
+@login_required
+def responder_mensaje(mensaje_id):
+    """El organizador responde a un mensaje"""
+    if getattr(current_user, 'rol', '') not in ('admin', 'organizador'):
+        flash('No tienes permiso para responder.', 'error')
+        return redirect(url_for('home'))
+    
+    respuesta = request.form.get('respuesta', '').strip()
+    if not respuesta:
+        flash('La respuesta no puede estar vacía.', 'error')
+        return redirect(url_for('mis_notificaciones'))
+    
+    chat_user_id = None
+    try:
+        cursor = db.connection.cursor()
+        # Verificar que el mensaje pertenece al organizador actual
+        cursor.execute(
+            "SELECT id, remitente_id FROM mensajes_organizador WHERE id = %s AND organizador_id = %s",
+            (mensaje_id, current_user.id)
+        )
+        mensaje = cursor.fetchone()
+        if not mensaje:
+            flash('No tienes permiso para responder este mensaje.', 'error')
+            return redirect(url_for('mis_notificaciones'))
+        chat_user_id = mensaje[1]
+        
+        # Guardar respuesta
+        cursor.execute(
+            """
+            INSERT INTO respuestas_organizador
+            (mensaje_id, organizador_id, destinatario_id, autor_id, respuesta, leido_destinatario)
+            VALUES (%s, %s, %s, %s, %s, 0)
+            """,
+            (mensaje_id, current_user.id, mensaje[1], current_user.id, respuesta)
+        )
+        cursor.execute(
+            "UPDATE mensajes_organizador SET leido = 1 WHERE id = %s AND organizador_id = %s",
+            (mensaje_id, current_user.id)
+        )
+        cursor.execute(
+            """
+            UPDATE respuestas_organizador
+            SET leido_destinatario = 1
+            WHERE destinatario_id = %s AND mensaje_id = %s
+            """,
+            (current_user.id, mensaje_id)
+        )
+        db.connection.commit()
+        flash('✓ Respuesta enviada correctamente.', 'success')
+    except Exception as ex:
+        print(f"[ERROR] responder_mensaje: {ex}")
+        flash('Ocurrió un error al enviar la respuesta.', 'error')
+        db.connection.rollback()
+    
+    return redirect(url_for('mis_notificaciones', chat=chat_user_id))
+
+@app.route('/notificacion/<int:mensaje_id>/responder-usuario', methods=['POST'])
+@login_required
+def responder_usuario(mensaje_id):
+    """Agrega un mensaje del estudiante al mismo hilo de conversación."""
+    respuesta = request.form.get('respuesta', '').strip()
+    if not respuesta:
+        flash('El mensaje no puede estar vacío.', 'error')
+        return redirect(url_for('mis_notificaciones'))
+
+    chat_user_id = None
+    try:
+        cursor = db.connection.cursor()
+        cursor.execute(
+            """
+            SELECT organizador_id FROM mensajes_organizador
+            WHERE id = %s AND remitente_id = %s
+            """,
+            (mensaje_id, current_user.id)
+        )
+        mensaje = cursor.fetchone()
+        if not mensaje:
+            flash('No tienes permiso para responder este mensaje.', 'error')
+            return redirect(url_for('mis_notificaciones'))
+        chat_user_id = current_user.id
+
+        cursor.execute(
+            """
+            INSERT INTO respuestas_organizador
+            (mensaje_id, organizador_id, destinatario_id, autor_id, respuesta, leido_destinatario)
+            VALUES (%s, %s, %s, %s, %s, 0)
+            """,
+            (mensaje_id, mensaje[0], mensaje[0], current_user.id, respuesta)
+        )
+        cursor.execute(
+            """
+            UPDATE respuestas_organizador
+            SET leido_destinatario = 1
+            WHERE mensaje_id = %s AND destinatario_id = %s AND autor_id <> %s
+            """,
+            (mensaje_id, current_user.id, current_user.id)
+        )
+        db.connection.commit()
+        flash('Mensaje enviado correctamente.', 'success')
+    except Exception as ex:
+        print(f"[ERROR] responder_usuario: {ex}")
+        db.connection.rollback()
+        flash('Ocurrió un error al enviar el mensaje.', 'error')
+    return redirect(url_for('mis_notificaciones', chat=chat_user_id))
+
+def get_unread_notifications_count(user_id):
+    """Obtiene mensajes y respuestas nuevas dirigidas al organizador."""
+    try:
+        cursor = db.connection.cursor()
+        cursor.execute(
+            """
+            SELECT (
+                (SELECT COUNT(*) FROM mensajes_organizador WHERE organizador_id = %s AND leido = 0)
+                +
+                (SELECT COUNT(*) FROM respuestas_organizador WHERE destinatario_id = %s AND leido_destinatario = 0)
+            )
+            """,
+            (user_id, user_id)
+        )
+        count = cursor.fetchone()[0]
+        return count
+    except Exception:
+        return 0
+
+def get_unread_responses_count(user_id):
+    """Obtiene el número de respuestas dirigidas al usuario."""
+    try:
+        cursor = db.connection.cursor()
+        cursor.execute(
+            "SELECT COUNT(*) FROM respuestas_organizador WHERE destinatario_id = %s AND leido_destinatario = 0",
+            (user_id,)
+        )
+        return cursor.fetchone()[0]
+    except Exception:
+        return 0
+
+@app.route('/perfil')
+@login_required
+def perfil_usuario():
+    """Muestra el perfil del usuario con opción de subir foto"""
+    try:
+        cursor = db.connection.cursor()
+        user_id = getattr(current_user, 'id', None)
+        
+        cursor.execute(
+            "SELECT id, username, email, dni, telefono, foto_perfil FROM `user` WHERE id = %s LIMIT 1",
+            (user_id,)
+        )
+        user_data = cursor.fetchone()
+        
+        if not user_data:
+            flash('No se encontraron los datos de tu perfil.', 'error')
+            return redirect(url_for('home'))
+        
+        usuario = {
+            'id': user_data[0],
+            'username': user_data[1],
+            'email': user_data[2],
+            'dni': user_data[3],
+            'telefono': user_data[4],
+            'foto_perfil': user_data[5]
+        }
+        
+        return render_template('perfil.html', usuario=usuario)
+    except Exception as ex:
+        print(f"[ERROR] perfil_usuario: {ex}")
+        flash('Ocurrió un error al cargar tu perfil.', 'error')
+        return redirect(url_for('home'))
+
+@app.route('/perfil/actualizar', methods=['POST'])
+@login_required
+def actualizar_perfil():
+    """Actualiza el nombre y, opcionalmente, la foto del usuario."""
+    nombre = request.form.get('username')
+
+    foto = request.files.get('foto')
+    foto_path = None
+    if foto and foto.filename:
+        allowed_extensions = {'jpg', 'jpeg', 'png', 'gif', 'webp'}
+        extension = foto.filename.rsplit('.', 1)[-1].lower() if '.' in foto.filename else ''
+        if extension not in allowed_extensions:
+            flash('Formato de imagen no permitido. Usa JPG, PNG, GIF o WEBP.', 'error')
+            return redirect(url_for('home'))
+
+        filename = f'perfil_{current_user.id}_{uuid.uuid4().hex}.{extension}'
+        profile_photos_dir = os.path.join(app.static_folder, 'perfil')
+        os.makedirs(profile_photos_dir, exist_ok=True)
+        foto.save(os.path.join(profile_photos_dir, filename))
+        foto_path = f'perfil/{filename}'
+
+    try:
+        cursor = db.connection.cursor()
+        if foto_path and nombre:
+            cursor.execute(
+                "UPDATE `user` SET username = %s, foto_perfil = %s WHERE id = %s",
+                (nombre.strip(), foto_path, current_user.id)
+            )
+        elif foto_path:
+            cursor.execute(
+                "UPDATE `user` SET foto_perfil = %s WHERE id = %s",
+                (foto_path, current_user.id)
+            )
+        else:
+            flash('Selecciona una foto para actualizar tu perfil.', 'error')
+            return redirect(url_for('home'))
+        db.connection.commit()
+        flash('Perfil actualizado correctamente.', 'success')
+    except Exception as ex:
+        db.connection.rollback()
+        print(f"[ERROR] actualizar_perfil: {ex}")
+        flash('No se pudo actualizar el perfil.', 'error')
+
+    return redirect(url_for('home'))
+
+@app.route('/perfil/subir-foto', methods=['POST'])
+@login_required
+def subir_foto_perfil():
+    """Sube la foto de perfil del usuario"""
+    try:
+        if 'foto' not in request.files:
+            flash('No se seleccionó ningún archivo.', 'error')
+            return redirect(request.referrer or url_for('home'))
+        
+        file = request.files['foto']
+        if file.filename == '':
+            flash('No se seleccionó ningún archivo.', 'error')
+            return redirect(request.referrer or url_for('home'))
+        
+        # Validar extensión
+        allowed_extensions = {'jpg', 'jpeg', 'png', 'gif', 'webp'}
+        if not ('.' in file.filename and file.filename.rsplit('.', 1)[1].lower() in allowed_extensions):
+            flash('Formato de imagen no permitido. Usa JPG, PNG, GIF o WEBP.', 'error')
+            return redirect(request.referrer or url_for('home'))
+        
+        # Guardar imagen
+        extension = file.filename.rsplit('.', 1)[1].lower()
+        filename = f'perfil_{current_user.id}_{uuid.uuid4().hex}.{extension}'
+        PROFILE_PHOTOS_DIR = os.path.join(app.static_folder, 'perfil')
+        os.makedirs(PROFILE_PHOTOS_DIR, exist_ok=True)
+        file.save(os.path.join(PROFILE_PHOTOS_DIR, filename))
+        
+        # Actualizar BD con ruta de foto
+        cursor = db.connection.cursor()
+        cursor.execute(
+            "UPDATE `user` SET foto_perfil = %s WHERE id = %s",
+            (f'perfil/{filename}', current_user.id)
+        )
+        db.connection.commit()
+        
+        flash('✓ Foto de perfil actualizada correctamente.', 'success')
+    except Exception as ex:
+        print(f"[ERROR] subir_foto_perfil: {ex}")
+        flash('Error al subir la foto de perfil.', 'error')
+    
+    return redirect(request.referrer or url_for('home'))
 
 if __name__ == '__main__':
-    app.run()
+    app.run(debug=True, port=5000)
+
+

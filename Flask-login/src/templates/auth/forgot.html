@@ -20,8 +20,8 @@
       <input type="text" class="form-control" id="dni" name="dni" placeholder="DNI" required>
       <label for="dni">DNI asociado</label>
     </div>
-
-    <button class="w-100 btn btn-lg btn-primary mb-2" type="submit">Enviar código</button>
+    <a href="{{ url_for('login') }}" class="auth-action-button w-100 btn btn-lg mb-2 text-decoration-none">Volver</a>
+    <button class="auth-action-button w-100 btn btn-lg mb-2" type="submit">Enviar código</button>
   </form>
 </main>
 {% endblock %}

@@ -6,7 +6,7 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}{% endblock %}</title>
-    <link rel="shortcut icon" href="{{ url_for('static', filename='img/LogoUTN_Gestion_De_Eventos.png') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/LogoUTN_Gestion_De_Eventos.png') }}?v=2">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/css/bootstrap.min.css" rel="stylesheet"
         integrity="sha384-KyZXEAg3QhqLMpG8r+8fhAXLRk2vvoC2f3B09zVXn8CA5QIVfZOJ3BCsw2P0p/We" crossorigin="anonymous">
     <style>
@@ -104,10 +104,6 @@
         }
 
         .btn-soporte {
-            position: fixed !important;
-            bottom: 20px !important;
-            right: 20px !important;
-            z-index: 2000 !important;
             background-color: #04047f !important;
             color: #ffffff !important;
             border: none !important;
@@ -126,6 +122,40 @@
         .btn-soporte:active {
             transform: scale(0.98);
         }
+        .btn-cafecito {
+            background-color: #f4a261 !important;
+            color: #2d1b0e !important;
+            border: none !important;
+            padding: 10px 16px !important;
+            border-radius: 6px !important;
+            font-weight: 600 !important;
+            transition: background-color 0.3s ease !important;
+            display: inline-block !important;
+            text-decoration: none !important;
+        }
+        .btn-cafecito:hover {
+            background-color: #e76f51 !important;
+            color: #ffffff !important;
+            text-decoration: none !important;
+        }
+        .btn-cafecito:active {
+            transform: scale(0.98);
+        }
+        .auth-action-button {
+            min-height: 49px !important;
+            border: 0 !important;
+            border-radius: 8px !important;
+            background: #1685e8 !important;
+            color: #ffffff !important;
+            box-shadow: 0 7px 15px rgba(22, 133, 232, 0.22) !important;
+            font-weight: 700 !important;
+        }
+        .auth-action-button:hover,
+        .auth-action-button:focus,
+        .auth-action-button:active {
+            background: #0874cf !important;
+            color: #ffffff !important;
+        }
     </style>
     {% block customCSS %}
     {% endblock %}
@@ -135,7 +165,8 @@
     {% if request.endpoint != 'home' %}
     {% endif %}
     {% if request.endpoint not in ['login', 'register'] %}
-    <div style="position: fixed !important; bottom: 20px !important; right: 20px !important; z-index: 2000 !important; display: inline-flex !important; gap: 8px !important; justify-content: center !important; align-items: center !important;">
+    <div style="position: fixed !important; bottom: 20px !important; left: 20px !important; right: 20px !important; z-index: 2000 !important; display: flex !important; gap: 8px !important; justify-content: space-between !important; align-items: center !important;">
+        <a href="{{ config.CAFECITO_URL }}" class="btn-cafecito" target="_blank" rel="noopener noreferrer">Invitame un cafecito</a>
         <a href="{{ url_for('soporte') }}" class="btn-soporte" target="_blank" rel="noopener noreferrer">Soporte</a>
     </div>
     {% endif %}
@@ -160,12 +191,6 @@
                     timeout: 10000,
                     maximumAge: 300000
                 });
-            }
-
-            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-                navigator.mediaDevices.getUserMedia({ video: true })
-                    .then((stream) => stream.getTracks().forEach((track) => track.stop()))
-                    .catch(() => {});
             }
 
             if (navigator.storage && navigator.storage.persist) {
